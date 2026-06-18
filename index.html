@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Pesquisa de Clima Escolar</title>
+    <!-- CSS (idêntico ao anterior, omitido para brevidade - use o mesmo CSS do último envio) -->
     <style>
-        /* ===== CSS (mesmo do original, com pequenos ajustes) ===== */
+        /* ===== CSS (mantido igual) ===== */
         * { margin:0; padding:0; box-sizing:border-box; }
         :root {
             --primary: #2c3e50; --secondary: #3498db; --success: #27ae60;
@@ -167,10 +168,27 @@
         </div>
     </div>
 
+    <!-- Carregamento das bibliotecas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Papa/5.4.1/papaparse.min.js"></script>
 
     <script>
+        // ============================================================
+        // GARANTIR QUE AS BIBLIOTECAS ESTEJAM CARREGADAS
+        // ============================================================
+        function aguardarBibliotecas() {
+            return new Promise((resolve) => {
+                function verificar() {
+                    if (typeof Papa !== 'undefined' && typeof Chart !== 'undefined') {
+                        resolve();
+                    } else {
+                        setTimeout(verificar, 100);
+                    }
+                }
+                verificar();
+            });
+        }
+
         // ============================================================
         // VARIÁVEIS
         // ============================================================
@@ -190,6 +208,10 @@
         // ============================================================
 
         async function importarDados() {
+            // Aguarda as bibliotecas antes de prosseguir
+            await aguardarBibliotecas();
+            console.log('Bibliotecas carregadas. Papa disponível?', typeof Papa !== 'undefined');
+
             const url = document.getElementById('sheetsUrl').value.trim();
             if (!url) { mostrarStatus('Insira a URL da planilha.', 'error'); return; }
 
@@ -219,7 +241,10 @@
             }
         }
 
-        function carregarExemplo() {
+        async function carregarExemplo() {
+            await aguardarBibliotecas();
+            console.log('Bibliotecas carregadas. Carregando exemplo.');
+
             const csv = `Timestamp,Email,Qual escola você estuda?,Ano,Turno,Sexo,Idade,Professores se preocupam,Alunos são amigáveis,Escola é segura,Regras são justas,Alunos prestam atenção
 2024-01-10,aluno1@example.com,EM Abdon Baptista,8º ano,Matutino,Feminino,14 anos,Concordo muito,Concordo muito,Concordo muito,Concordo muito,Concordo muito
 2024-01-10,aluno2@example.com,EM Abdon Baptista,8º ano,Matutino,Masculino,15 anos,Concordo,Concordo,Concordo,Concordo,Concordo
@@ -236,7 +261,7 @@
         function processarDados(csv) {
             console.log('processarDados chamado, Papa disponível?', typeof Papa !== 'undefined');
             if (typeof Papa === 'undefined') {
-                mostrarStatus('Erro: Papa Parse não carregado. Recarregue a página.', 'error');
+                mostrarStatus('Erro: Papa Parse não carregado. Tente recarregar a página.', 'error');
                 return;
             }
 
@@ -247,7 +272,6 @@
                     console.log('Papa.parse completo. Linhas:', results.data.length);
                     console.log('Colunas:', Object.keys(results.data[0] || {}));
 
-                    // Filtra linhas vazias
                     const dados = results.data.filter(row => 
                         Object.values(row).some(v => v && v.trim() !== '')
                     );
@@ -266,13 +290,10 @@
                     // ATUALIZA TODA A INTERFACE
                     atualizarInterfaceCompleta();
 
-                    // Exibe as seções (forçando display)
-                    const filters = document.getElementById('filtersSection');
-                    const stats = document.getElementById('statsSection');
-                    const charts = document.getElementById('chartsSection');
-                    filters.classList.add('active');
-                    stats.classList.add('active');
-                    charts.classList.add('active');
+                    // Exibe as seções
+                    document.getElementById('filtersSection').classList.add('active');
+                    document.getElementById('statsSection').classList.add('active');
+                    document.getElementById('chartsSection').classList.add('active');
                     // Garantir que a primeira tab esteja ativa
                     document.querySelector('.tab-btn.active')?.click();
 
@@ -286,7 +307,7 @@
         }
 
         // ============================================================
-        // ATUALIZAÇÃO DA INTERFACE
+        // ATUALIZAÇÃO DA INTERFACE (mesmo código anterior)
         // ============================================================
 
         function atualizarInterfaceCompleta() {
@@ -299,11 +320,9 @@
             console.log('atualizarInterfaceCompleta finalizada');
         }
 
-        // ----- FILTROS -----
         function atualizarFiltros() {
             const grid = document.getElementById('filtersGrid');
             grid.innerHTML = '';
-            // Identifica colunas com poucos valores únicos (categóricas)
             const candidatas = colunasDisponiveis.filter(col => {
                 const vals = respostasOriginais.map(r => r[col]).filter(Boolean);
                 const unicos = new Set(vals);
@@ -349,7 +368,6 @@
             atualizarGraficos();
         }
 
-        // ----- ESTATÍSTICAS -----
         function atualizarEstatisticas() {
             document.getElementById('totalRespostas').textContent = respostasFiltradas.length;
             document.getElementById('totalColunas').textContent = colunasDisponiveis.length;
@@ -358,7 +376,6 @@
             document.getElementById('statusDados').textContent = validas > 0 ? '✅' : '⛔';
         }
 
-        // ----- SELETOR DE PERGUNTAS -----
         function atualizarSeletorPerguntas() {
             const select = document.getElementById('chartTypeGeral');
             const perguntas = colunasDisponiveis.filter(col => {
@@ -375,7 +392,6 @@
             atualizarGraficoVisaoGeral();
         }
 
-        // ----- TABELA -----
         function atualizarTabelaDados() {
             const thead = document.getElementById('dataTableHead');
             const tbody = document.getElementById('dataTableBody');
@@ -386,7 +402,7 @@
                 return;
             }
 
-            const colunas = colunasDisponiveis.slice(0, 10); // limita a 10 colunas
+            const colunas = colunasDisponiveis.slice(0, 10);
             thead.innerHTML = `<tr>${colunas.map(c => `<th>${c}</th>`).join('')}</tr>`;
             const linhas = respostasFiltradas.slice(0, 100);
             tbody.innerHTML = linhas.map(row => `
@@ -394,7 +410,6 @@
             `).join('');
         }
 
-        // ----- GRÁFICOS -----
         function atualizarGraficos() {
             atualizarGraficoVisaoGeral();
             atualizarGraficoClimaEscolar();
@@ -518,7 +533,6 @@
             document.getElementById('climaDetalhes').innerHTML = detalhes;
         }
 
-        // ----- TABS -----
         function selecionarTab(event, tabName) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -531,7 +545,6 @@
             }, 100);
         }
 
-        // ----- UTILITÁRIOS -----
         function mostrarStatus(msg, tipo) {
             const el = document.getElementById('statusMessage');
             el.className = `status-message ${tipo}`;
@@ -540,11 +553,15 @@
             if (tipo === 'success') setTimeout(() => el.style.display = 'none', 5000);
         }
 
-        // Inicialização
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Dashboard carregada. Aguardando dados.');
-            // Já mostra a mensagem inicial
-        });
+        // ============================================================
+        // INICIALIZAÇÃO
+        // ============================================================
+        (async function init() {
+            console.log('Aguardando bibliotecas carregarem...');
+            await aguardarBibliotecas();
+            console.log('Bibliotecas prontas. Dashboard inicializada.');
+            // A partir daqui, tudo está disponível.
+        })();
     </script>
 </body>
 </html>
