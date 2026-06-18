@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Pesquisa de Clima Escolar Joinville</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Papa/5.4.1/papaparse.min.js" defer></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+            --light: #ecf0f1;
+            --dark: #2c3e50;
+            --border-radius: 8px;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 30px 0;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Seção de Importação */
+        .import-section {
+            background: white;
+            padding: 25px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+        }
+
+        .import-section h2 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: var(--primary);
+        }
+
+        .import-form {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .form-group {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--primary);
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        button {
+            padding: 10px 24px;
+            background-color: var(--secondary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.secondary {
+            background-color: #95a5a6;
+        }
+
+        button.secondary:hover {
+            background-color: #7f8c8d;
+        }
+
+        .status-message {
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-top: 15px;
+            font-size: 13px;
+            display: none;
+        }
+
+        .status-message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .status-message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .status-message.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+
+        /* Filtros */
+        .filters-section {
+            background: white;
+            padding: 25px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+            display: none;
+        }
+
+        .filters-section.active {
+            display: block;
+        }
+
+        .filters-section h3 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: var(--primary);
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .filter-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            background-color: white;
+            cursor: pointer;
+        }
+
+        /* Estatísticas */
+        .stats-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            border-left: 4px solid var(--secondary);
+        }
+
+        .stat-card h3 {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .stat-card.success {
+            border-left-color: var(--success);
+        }
+
+        .stat-card.warning {
+            border-left-color: var(--warning);
+        }
+
+        .stat-card.danger {
+            border-left-color: var(--danger);
+        }
+
+        /* Seção de Gráficos */
+        .charts-section {
+            display: none;
+        }
+
+        .charts-section.active {
+            display: block;
+        }
+
+        .chart-controls {
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+        }
+
+        .chart-controls select {
+            width: 100%;
+            max-width: 400px;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .chart-card {
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+        }
+
+        .chart-card h3 {
+            font-size: 14px;
+            margin-bottom: 15px;
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        /* Tabela de Respostas */
+        .data-section {
+            background: white;
+            padding: 25px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            display: none;
+            margin-top: 30px;
+        }
+
+        .data-section.active {
+            display: block;
+        }
+
+        .data-section h3 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: var(--primary);
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        thead {
+            background-color: #f8f9fa;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        th {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        /* Loading */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid var(--secondary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 12px 20px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #95a5a6;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            margin-bottom: -2px;
+        }
+
+        .tab-btn.active {
+            color: var(--secondary);
+            border-bottom-color: var(--secondary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Responsivo */
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 22px;
+            }
+
+            .import-form {
+                flex-direction: column;
+            }
+
+            .form-group {
+                min-width: 100%;
+            }
+
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-section {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #ecf0f1;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--secondary);
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .question-distribution {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+
+        .question-card {
+            background: white;
+            padding: 15px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+        }
+
+        .question-card h4 {
+            font-size: 13px;
+            margin-bottom: 12px;
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .response-option {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 12px;
+        }
+
+        .response-bar {
+            flex: 1;
+            height: 24px;
+            background-color: #ecf0f1;
+            border-radius: 3px;
+            margin: 0 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .response-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--secondary), #2980b9);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 5px;
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .response-label {
+            min-width: 80px;
+            font-size: 12px;
+        }
+
+        .response-count {
+            min-width: 50px;
+            text-align: right;
+            color: #7f8c8d;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>📊 Pesquisa de Clima Escolar</h1>
+            <p>Dashboard de Análise - Joinville, SC</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Seção de Importação -->
+        <div class="import-section">
+            <h2>🔗 Importar Dados de Respostas</h2>
+            <p style="margin-bottom: 15px; color: #7f8c8d; font-size: 13px;">
+                Cole aqui o link compartilhado de sua planilha Google Sheets contendo as respostas. 
+                <strong>Importante:</strong> A planilha deve estar compartilhada com "Qualquer pessoa com o link pode ver".
+            </p>
+            
+            <div class="import-form">
+                <div class="form-group" style="flex: 1; min-width: 250px;">
+                    <label for="sheetsUrl">URL da Planilha Google Sheets:</label>
+                    <input 
+                        type="text" 
+                        id="sheetsUrl" 
+                        placeholder="Ex: https://docs.google.com/spreadsheets/d/1abc123.../edit?usp=sharing"
+                    >
+                    <small style="color: #7f8c8d; margin-top: 5px; display: block;">
+                        Copie a URL do seu Google Sheets e cole aqui
+                    </small>
+                </div>
+                <button id="importBtn" onclick="importarDados()">
+                    📥 Importar Dados
+                </button>
+                <button class="secondary" onclick="carregarExemplo()" title="Carregar dados de exemplo para teste">
+                    📋 Dados de Exemplo
+                </button>
+            </div>
+
+            <div id="statusMessage" class="status-message"></div>
+            <div id="progressContainer" style="display: none;">
+                <p style="font-size: 13px; margin-bottom: 10px;">Processando dados...</p>
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Seção de Filtros -->
+        <div id="filtersSection" class="filters-section">
+            <h3>🔍 Filtros</h3>
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label>Escola:</label>
+                    <select id="filterEscola" onchange="aplicarFiltros()">
+                        <option value="">Todas as escolas</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Ano Escolar:</label>
+                    <select id="filterAno" onchange="aplicarFiltros()">
+                        <option value="">Todos os anos</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Turno:</label>
+                    <select id="filterTurno" onchange="aplicarFiltros()">
+                        <option value="">Todos os turnos</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Sexo:</label>
+                    <select id="filterSexo" onchange="aplicarFiltros()">
+                        <option value="">Ambos</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estatísticas -->
+        <div id="statsSection" class="stats-section" style="display: none;">
+            <div class="stat-card">
+                <h3>Total de Respostas</h3>
+                <div class="value" id="totalRespostas">0</div>
+            </div>
+            <div class="stat-card success">
+                <h3>Escolas Participantes</h3>
+                <div class="value" id="totalEscolas">0</div>
+            </div>
+            <div class="stat-card warning">
+                <h3>Taxa de Resposta</h3>
+                <div class="value" id="taxaResposta">0%</div>
+            </div>
+            <div class="stat-card danger">
+                <h3>Perguntas Analisadas</h3>
+                <div class="value" id="perguntasAnalisadas">93</div>
+            </div>
+        </div>
+
+        <!-- Seção de Análise -->
+        <div id="chartsSection" class="charts-section">
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab-btn active" onclick="selecionarTab('visao-geral')">Visão Geral</button>
+                <button class="tab-btn" onclick="selecionarTab('clima-escolar')">Clima Escolar</button>
+                <button class="tab-btn" onclick="selecionarTab('dados-brutos')">Dados Brutos</button>
+            </div>
+
+            <!-- Tab: Visão Geral -->
+            <div id="tab-visao-geral" class="tab-content active">
+                <div class="chart-controls">
+                    <label for="chartTypeGeral" style="display: block; margin-bottom: 10px; font-weight: 600; font-size: 13px;">
+                        Selecione a pergunta para visualizar:
+                    </label>
+                    <select id="chartTypeGeral" onchange="atualizarGraficoVisaoGeral()">
+                        <option value="">Carregando perguntas...</option>
+                    </select>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>Distribuição de Respostas</h3>
+                        <div class="chart-container">
+                            <canvas id="chartGeral"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Clima Escolar -->
+            <div id="tab-clima-escolar" class="tab-content">
+                <div class="chart-controls">
+                    <label for="tipoClimaEscolar" style="display: block; margin-bottom: 10px; font-weight: 600; font-size: 13px;">
+                        Filtrar por tema:
+                    </label>
+                    <select id="tipoClimaEscolar" onchange="atualizarGraficoClimaEscolar()">
+                        <option value="">Todas as perguntas de Clima Escolar</option>
+                    </select>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>Concordância Média (Clima Escolar)</h3>
+                        <div class="chart-container">
+                            <canvas id="chartClima"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div id="climaDetalhes" class="question-distribution"></div>
+            </div>
+
+            <!-- Tab: Dados Brutos -->
+            <div id="tab-dados-brutos" class="tab-content">
+                <div class="data-section active">
+                    <h3>Tabela de Respostas Individuais</h3>
+                    <div style="margin-bottom: 15px; font-size: 13px; color: #7f8c8d;">
+                        Mostrando as primeiras 100 respostas. Exporte os dados completos do Google Sheets para análise detalhada.
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="dataTable">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Escola</th>
+                                    <th>Ano</th>
+                                    <th>Turno</th>
+                                    <th>Sexo</th>
+                                    <th>Idade</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dataTableBody">
+                                <tr>
+                                    <td colspan="6" class="empty-state">
+                                        Nenhum dado importado ainda. Insira a URL da planilha acima.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Estrutura das perguntas (será preenchida com dados reais)
+        let estruturaPerguntas = [];
+        let respostasOriginais = [];
+        let respostasFiltradas = [];
+        let chartsInstancias = {};
+
+        // Opções padrão das perguntas do formulário (baseadas na estrutura)
+        const OPCOES_PADRAO = {
+            'Concordo muito': 4,
+            'Concordo': 3,
+            'Discordo': 2,
+            'Discordo muito': 1,
+            'Sim': 1,
+            'Não': 0
+        };
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', function() {
+            carregarEstrutura();
+        });
+
+        // Carregar estrutura de perguntas
+        async function carregarEstrutura() {
+            // Estrutura padrão que será usada
+            estruturaPerguntas = [
+                { id: 1, titulo: 'Você concorda em participar dessa pesquisa?', tipo: 'MULTIPLE_CHOICE', opcoes: ['Sim', 'Não'] },
+                { id: 2, titulo: 'INFORMAÇÕES GERAIS', tipo: 'PAGE_BREAK', opcoes: [] },
+                { id: 3, titulo: 'Você é do sexo feminino ou masculino?', tipo: 'MULTIPLE_CHOICE', opcoes: ['Feminino', 'Masculino'] },
+                { id: 4, titulo: 'Qual é a sua idade?', tipo: 'MULTIPLE_CHOICE', opcoes: ['11 anos ou menos', '12 anos', '13 anos', '14 anos', '15 anos', '16 anos', '17 anos', '18 anos', '19 anos ou mais'] },
+                { id: 5, titulo: 'Qual é a sua cor ou raça?', tipo: 'MULTIPLE_CHOICE', opcoes: ['Branca', 'Preta', 'Parda', 'Amarela', 'Indígena'] },
+                { id: 6, titulo: 'Em que país você nasceu?', tipo: 'MULTIPLE_CHOICE', opcoes: ['Brasil', 'Outro país'] },
+                { id: 7, titulo: 'Em qual escola você estuda?', tipo: 'LIST', opcoes: ['EM Abdon Baptista', 'EM Ada Sant\'Anna da Silveira', 'EM Amador Aguiar', 'EM Anaburgo', 'EM Anna Maria Harger'] },
+                { id: 8, titulo: 'Em que ano escolar você está?', tipo: 'MULTIPLE_CHOICE', opcoes: ['6º ano do Ensino Fundamental', '7º ano do Ensino Fundamental', '8º ano do Ensino Fundamental', '9º ano do Ensino Fundamental'] },
+                { id: 9, titulo: 'Em que turno escolar você está?', tipo: 'MULTIPLE_CHOICE', opcoes: ['Matutino', 'Vespertino', 'Noturno'] },
+                { id: 10, titulo: 'Você repetiu algum ano?', tipo: 'MULTIPLE_CHOICE', opcoes: ['Não, nunca', 'Sim, uma vez', 'Sim, duas vezes ou mais'] },
+                { id: 14, titulo: 'CLIMA ESCOLAR', tipo: 'PAGE_BREAK', opcoes: [] },
+                { id: 15, titulo: 'Os professores se preocupam com os seus alunos.', tipo: 'MULTIPLE_CHOICE', opcoes: ['Discordo muito', 'Discordo', 'Concordo', 'Concordo muito'] },
+                { id: 16, titulo: 'Os alunos são amigáveis uns com os outros.', tipo: 'MULTIPLE_CHOICE', opcoes: ['Discordo muito', 'Discordo', 'Concordo', 'Concordo muito'] },
+                { id: 17, titulo: 'Esta escola é segura.', tipo: 'MULTIPLE_CHOICE', opcoes: ['Discordo muito', 'Discordo', 'Concordo', 'Concordo muito'] },
+                { id: 18, titulo: 'As regras da escola são justas.', tipo: 'MULTIPLE_CHOICE', opcoes: ['Discordo muito', 'Discordo', 'Concordo', 'Concordo muito'] },
+                { id: 19, titulo: 'A maioria dos alunos presta atenção nas aulas.', tipo: 'MULTIPLE_CHOICE', opcoes: ['Discordo muito', 'Discordo', 'Concordo', 'Concordo muito'] }
+            ];
+        }
+
+        // Importar dados de Google Sheets
+        async function importarDados() {
+            const sheetsUrl = document.getElementById('sheetsUrl').value.trim();
+            const statusMsg = document.getElementById('statusMessage');
+            const importBtn = document.getElementById('importBtn');
+
+            if (!sheetsUrl) {
+                mostrarStatus('Por favor, insira a URL da planilha Google Sheets', 'error');
+                return;
+            }
+
+            // Extrair ID da planilha
+            const idMatch = sheetsUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+            if (!idMatch) {
+                mostrarStatus('URL inválida. Por favor, use o formato correto do Google Sheets', 'error');
+                return;
+            }
+
+            const sheetId = idMatch[1];
+            const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+
+            try {
+                importBtn.disabled = true;
+                mostrarStatus(`<span class="spinner"></span>Conectando à planilha...`, 'info');
+                document.getElementById('progressContainer').style.display = 'block';
+
+                const response = await fetch(csvUrl);
+                if (!response.ok) {
+                    throw new Error('Não foi possível acessar a planilha. Verifique se ela está compartilhada publicamente.');
+                }
+
+                const csv = await response.text();
+                processarDados(csv);
+                mostrarStatus('✓ Dados importados com sucesso!', 'success');
+            } catch (error) {
+                mostrarStatus(`Erro ao importar: ${error.message}`, 'error');
+            } finally {
+                importBtn.disabled = false;
+                document.getElementById('progressContainer').style.display = 'none';
+            }
+        }
+
+        // Processar dados CSV
+        function processarDados(csv) {
+            Papa.parse(csv, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    respostasOriginais = results.data;
+                    respostasFiltradas = [...respostasOriginais];
+                    
+                    // Validar dados
+                    if (respostasOriginais.length === 0) {
+                        mostrarStatus('A planilha está vazia ou não foi lida corretamente', 'error');
+                        return;
+                    }
+
+                    // Atualizar interface
+                    atualizarInterface();
+                    atualizarFiltros();
+                    atualizarEstatisticas();
+                    atualizarGraficos();
+
+                    document.getElementById('filtersSection').classList.add('active');
+                    document.getElementById('statsSection').style.display = 'grid';
+                    document.getElementById('chartsSection').classList.add('active');
+                }
+            });
+        }
+
+        // Carregar dados de exemplo
+        function carregarExemplo() {
+            const exemploCSV = `Timestamp,Email,Você concorda em participar dessa pesquisa?,Você é do sexo feminino ou masculino?,Qual é a sua idade?,Em qual escola você estuda?,Em que ano escolar você está?,Em que turno escolar você está?,Os professores se preocupam com os seus alunos.,Os alunos são amigáveis uns com os outros.,Esta escola é segura.,As regras da escola são justas.,A maioria dos alunos presta atenção nas aulas.
+2024-01-10 10:30:00,aluno1@example.com,Sim,Feminino,14 anos,EM Abdon Baptista,8º ano do Ensino Fundamental,Matutino,Concordo muito,Concordo muito,Concordo muito,Concordo muito,Concordo muito
+2024-01-10 10:32:00,aluno2@example.com,Sim,Masculino,15 anos,EM Abdon Baptista,8º ano do Ensino Fundamental,Matutino,Concordo,Concordo,Concordo,Concordo,Concordo
+2024-01-10 10:35:00,aluno3@example.com,Sim,Feminino,13 anos,EM Ada Sant'Anna da Silveira,7º ano do Ensino Fundamental,Vespertino,Discordo,Concordo muito,Discordo muito,Concordo,Concordo muito
+2024-01-10 10:37:00,aluno4@example.com,Sim,Masculino,16 anos,EM Amador Aguiar,9º ano do Ensino Fundamental,Noturno,Concordo muito,Concordo,Concordo,Discordo,Concordo muito
+2024-01-10 10:40:00,aluno5@example.com,Sim,Feminino,14 anos,EM Abdon Baptista,8º ano do Ensino Fundamental,Vespertino,Concordo,Concordo muito,Concordo muito,Concordo muito,Concordo
+2024-01-10 10:42:00,aluno6@example.com,Sim,Masculino,15 anos,EM Ada Sant'Anna da Silveira,9º ano do Ensino Fundamental,Matutino,Concordo muito,Concordo,Concordo muito,Concordo muito,Concordo muito
+2024-01-10 10:45:00,aluno7@example.com,Sim,Feminino,13 anos,EM Anaburgo,7º ano do Ensino Fundamental,Matutino,Discordo muito,Discordo,Discordo muito,Discordo,Discordo
+2024-01-10 10:47:00,aluno8@example.com,Sim,Masculino,14 anos,EM Anna Maria Harger,8º ano do Ensino Fundamental,Vespertino,Concordo,Concordo,Concordo,Concordo,Concordo
+2024-01-10 10:50:00,aluno9@example.com,Sim,Feminino,16 anos,EM Arinor Vogelsanger,9º ano do Ensino Fundamental,Noturno,Concordo muito,Concordo muito,Concordo muito,Concordo muito,Concordo muito
+2024-01-10 10:52:00,aluno10@example.com,Sim,Masculino,13 anos,EM Avelino Marcante,7º ano do Ensino Fundamental,Matutino,Concordo,Discordo,Concordo,Discordo muito,Concordo`;
+
+            respostasOriginais = Papa.parse(exemploCSV, { header: true }).data.filter(r => r.Timestamp);
+            respostasFiltradas = [...respostasOriginais];
+
+            atualizarInterface();
+            atualizarFiltros();
+            atualizarEstatisticas();
+            atualizarGraficos();
+
+            document.getElementById('filtersSection').classList.add('active');
+            document.getElementById('statsSection').style.display = 'grid';
+            document.getElementById('chartsSection').classList.add('active');
+
+            mostrarStatus('✓ Dados de exemplo carregados com sucesso!', 'success');
+        }
+
+        // Atualizar interface
+        function atualizarInterface() {
+            atualizarSeletorPerguntas();
+            atualizarTabelaDados();
+        }
+
+        // Atualizar seletor de perguntas
+        function atualizarSeletorPerguntas() {
+            const select = document.getElementById('chartTypeGeral');
+            const colunas = Object.keys(respostasOriginais[0] || {});
+            
+            const perguntasValidas = colunas.filter(col => 
+                col !== 'Timestamp' && 
+                col !== 'Email' && 
+                col.length > 0
+            );
+
+            select.innerHTML = perguntasValidas.map((pergunta, idx) => 
+                `<option value="${idx}">${pergunta}</option>`
+            ).join('');
+        }
+
+        // Atualizar filtros
+        function atualizarFiltros() {
+            const escolas = [...new Set(respostasOriginais.map(r => r['Em qual escola você estuda?']).filter(Boolean))];
+            const anos = [...new Set(respostasOriginais.map(r => r['Em que ano escolar você está?']).filter(Boolean))];
+            const turnos = [...new Set(respostasOriginais.map(r => r['Em que turno escolar você está?']).filter(Boolean))];
+            const sexos = [...new Set(respostasOriginais.map(r => r['Você é do sexo feminino ou masculino?']).filter(Boolean))];
+
+            const preencherSelect = (selectId, opcoes) => {
+                const select = document.getElementById(selectId);
+                const valorAtual = select.value;
+                select.innerHTML = '<option value="">Todos</option>' + 
+                    opcoes.map(o => `<option value="${o}">${o}</option>`).join('');
+                select.value = valorAtual;
+            };
+
+            preencherSelect('filterEscola', escolas.sort());
+            preencherSelect('filterAno', anos);
+            preencherSelect('filterTurno', turnos);
+            preencherSelect('filterSexo', sexos);
+        }
+
+        // Aplicar filtros
+        function aplicarFiltros() {
+            const escola = document.getElementById('filterEscola').value;
+            const ano = document.getElementById('filterAno').value;
+            const turno = document.getElementById('filterTurno').value;
+            const sexo = document.getElementById('filterSexo').value;
+
+            respostasFiltradas = respostasOriginais.filter(r => {
+                const cumpreEscola = !escola || r['Em qual escola você estuda?'] === escola;
+                const cumpreAno = !ano || r['Em que ano escolar você está?'] === ano;
+                const cumpreTurno = !turno || r['Em que turno escolar você está?'] === turno;
+                const cumpreSexo = !sexo || r['Você é do sexo feminino ou masculino?'] === sexo;
+                
+                return cumpreEscola && cumpreAno && cumpreTurno && cumpreSexo;
+            });
+
+            atualizarEstatisticas();
+            atualizarGraficos();
+        }
+
+        // Atualizar estatísticas
+        function atualizarEstatisticas() {
+            const totalRespostas = respostasFiltradas.length;
+            const escolas = new Set(respostasFiltradas.map(r => r['Em qual escola você estuda?'])).size;
+            const taxaResposta = Math.round((totalRespostas / (54 * 48)) * 100);
+
+            document.getElementById('totalRespostas').textContent = totalRespostas.toLocaleString('pt-BR');
+            document.getElementById('totalEscolas').textContent = escolas;
+            document.getElementById('taxaResposta').textContent = taxaResposta + '%';
+        }
+
+        // Atualizar gráficos
+        function atualizarGraficos() {
+            atualizarGraficoVisaoGeral();
+            atualizarGraficoClimaEscolar();
+        }
+
+        // Atualizar gráfico de visão geral
+        function atualizarGraficoVisaoGeral() {
+            const selectGeral = document.getElementById('chartTypeGeral');
+            const idxPergunta = parseInt(selectGeral.value);
+            const colunas = Object.keys(respostasOriginais[0] || {});
+            const perguntaSelecionada = colunas.filter(col => 
+                col !== 'Timestamp' && col !== 'Email'
+            )[idxPergunta];
+
+            if (!perguntaSelecionada) return;
+
+            const respostas = respostasFiltradas
+                .map(r => r[perguntaSelecionada])
+                .filter(Boolean);
+
+            const contagem = {};
+            respostas.forEach(r => {
+                contagem[r] = (contagem[r] || 0) + 1;
+            });
+
+            const labels = Object.keys(contagem);
+            const dados = Object.values(contagem);
+
+            const ctx = document.getElementById('chartGeral');
+            if (chartsInstancias.chartGeral) chartsInstancias.chartGeral.destroy();
+
+            chartsInstancias.chartGeral = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Quantidade de Respostas',
+                        data: dados,
+                        backgroundColor: [
+                            '#3498db', '#2ecc71', '#f39c12', '#e74c3c', '#9b59b6'
+                        ],
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Atualizar gráfico de clima escolar
+        function atualizarGraficoClimaEscolar() {
+            const colunas = Object.keys(respostasOriginais[0] || {});
+            const perguntasClima = colunas.filter(col => 
+                col.includes('professor') || 
+                col.includes('amigável') || 
+                col.includes('segura') || 
+                col.includes('regra') || 
+                col.includes('atenção') ||
+                col.includes('se preocupam') ||
+                col.includes('são amigáveis') ||
+                col.includes('É segura') ||
+                col.includes('justas') ||
+                col.includes('presta atenção')
+            );
+
+            if (perguntasClima.length === 0) {
+                document.getElementById('tab-clima-escolar').innerHTML = 
+                    '<p class="empty-state">Nenhuma pergunta de Clima Escolar encontrada nos dados.</p>';
+                return;
+            }
+
+            // Calcular concordância média
+            const concordancias = {};
+            perguntasClima.forEach(pergunta => {
+                const respostas = respostasFiltradas
+                    .map(r => r[pergunta])
+                    .filter(Boolean);
+
+                const pontos = respostas.map(r => OPCOES_PADRAO[r] || 0);
+                const media = pontos.length > 0 ? pontos.reduce((a, b) => a + b) / pontos.length : 0;
+                concordancias[pergunta] = media;
+            });
+
+            const labels = Object.keys(concordancias).map(p => p.substring(0, 40) + '...');
+            const dados = Object.values(concordancias);
+
+            const ctx = document.getElementById('chartClima');
+            if (chartsInstancias.chartClima) chartsInstancias.chartClima.destroy();
+
+            chartsInstancias.chartClima = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Nível de Concordância (0-4)',
+                        data: dados,
+                        borderColor: '#3498db',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#3498db'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' }
+                    },
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 4
+                        }
+                    }
+                }
+            });
+
+            // Detalhes das perguntas
+            const detalhesHtml = perguntasClima.map(pergunta => {
+                const respostas = respostasFiltradas
+                    .map(r => r[pergunta])
+                    .filter(Boolean);
+
+                const contagem = {};
+                respostas.forEach(r => {
+                    contagem[r] = (contagem[r] || 0) + 1;
+                });
+
+                const totalRespostas = respostas.length;
+                const opcoes = ['Discordo muito', 'Discordo', 'Concordo', 'Concordo muito'];
+                
+                return `
+                    <div class="question-card">
+                        <h4>${pergunta.substring(0, 60)}${pergunta.length > 60 ? '...' : ''}</h4>
+                        ${opcoes.map(opcao => {
+                            const count = contagem[opcao] || 0;
+                            const percentual = totalRespostas > 0 ? (count / totalRespostas * 100).toFixed(1) : 0;
+                            return `
+                                <div class="response-option">
+                                    <span class="response-label">${opcao}</span>
+                                    <div class="response-bar">
+                                        <div class="response-fill" style="width: ${percentual}%">${percentual}%</div>
+                                    </div>
+                                    <span class="response-count">${count}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('climaDetalhes').innerHTML = detalhesHtml;
+        }
+
+        // Atualizar tabela de dados
+        function atualizarTabelaDados() {
+            const tbody = document.getElementById('dataTableBody');
+            const primeiras100 = respostasFiltradas.slice(0, 100);
+
+            if (primeiras100.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Nenhum dado para exibir</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = primeiras100.map((resposta, idx) => `
+                <tr>
+                    <td>${idx + 1}</td>
+                    <td>${resposta['Em qual escola você estuda?'] || '-'}</td>
+                    <td>${resposta['Em que ano escolar você está?'] || '-'}</td>
+                    <td>${resposta['Em que turno escolar você está?'] || '-'}</td>
+                    <td>${resposta['Você é do sexo feminino ou masculino?'] || '-'}</td>
+                    <td>${resposta['Qual é a sua idade?'] || '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Selecionar tab
+        function selecionarTab(tabName) {
+            // Desativar todas as tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Ativar tab selecionada
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            event.target.classList.add('active');
+
+            // Recriar gráficos se necessário
+            setTimeout(() => {
+                if (tabName === 'visao-geral') {
+                    if (chartsInstancias.chartGeral) chartsInstancias.chartGeral.resize();
+                } else if (tabName === 'clima-escolar') {
+                    if (chartsInstancias.chartClima) chartsInstancias.chartClima.resize();
+                }
+            }, 100);
+        }
+
+        // Mostrar mensagem de status
+        function mostrarStatus(mensagem, tipo) {
+            const el = document.getElementById('statusMessage');
+            el.className = `status-message ${tipo}`;
+            el.innerHTML = mensagem;
+
+            if (tipo === 'success') {
+                setTimeout(() => el.style.display = 'none', 5000);
+            }
+        }
+    </script>
+</body>
+</html>
