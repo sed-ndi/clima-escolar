@@ -3,413 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Pesquisa de Clima Escolar Joinville</title>
+    <title>Dashboard - Pesquisa de Clima Escolar</title>
     <style>
-        /* (mesmo CSS do original, mantido) */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        /* ===== CSS (mesmo do original, com pequenos ajustes) ===== */
+        * { margin:0; padding:0; box-sizing:border-box; }
         :root {
-            --primary: #2c3e50;
-            --secondary: #3498db;
-            --success: #27ae60;
-            --warning: #f39c12;
-            --danger: #e74c3c;
-            --light: #ecf0f1;
-            --dark: #2c3e50;
+            --primary: #2c3e50; --secondary: #3498db; --success: #27ae60;
+            --warning: #f39c12; --danger: #e74c3c; --shadow: 0 2px 8px rgba(0,0,0,0.1);
             --border-radius: 8px;
-            --shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f5f7fa;
-            color: var(--dark);
-            line-height: 1.6;
-        }
-        header {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-            color: white;
-            padding: 30px 0;
-            box-shadow: var(--shadow);
-            margin-bottom: 30px;
-        }
-        header h1 { font-size: 28px; margin-bottom: 5px; }
-        header p { opacity: 0.9; font-size: 14px; }
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-        .import-section {
-            background: white;
-            padding: 25px;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            margin-bottom: 30px;
-        }
-        .import-section h2 {
-            font-size: 18px;
-            margin-bottom: 20px;
-            color: var(--primary);
-        }
-        .import-form {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            align-items: flex-end;
-        }
-        .form-group {
-            flex: 1;
-            min-width: 250px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            font-size: 13px;
-            color: var(--primary);
-        }
-        .form-group input {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 13px;
-            transition: border-color 0.3s;
-        }
-        .form-group input:focus {
-            outline: none;
-            border-color: var(--secondary);
-            box-shadow: 0 0 0 3px rgba(52,152,219,0.1);
-        }
-        button {
-            padding: 10px 24px;
-            background-color: var(--secondary);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 13px;
-            transition: background-color 0.3s, transform 0.2s;
-        }
-        button:hover {
-            background-color: #2980b9;
-            transform: translateY(-2px);
-        }
-        button:active { transform: translateY(0); }
-        button.secondary {
-            background-color: #95a5a6;
-        }
-        button.secondary:hover {
-            background-color: #7f8c8d;
-        }
-        .status-message {
-            padding: 12px 16px;
-            border-radius: 4px;
-            margin-top: 15px;
-            font-size: 13px;
-            display: none;
-        }
-        .status-message.success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-            display: block;
-        }
-        .status-message.error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-            display: block;
-        }
-        .status-message.info {
-            background-color: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-            display: block;
-        }
-        .filters-section {
-            background: white;
-            padding: 25px;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            margin-bottom: 30px;
-            display: none;
-        }
-        .filters-section.active {
-            display: block;
-        }
-        .filters-section h3 {
-            font-size: 16px;
-            margin-bottom: 15px;
-            color: var(--primary);
-        }
-        .filters-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-        .filter-group {
-            display: flex;
-            flex-direction: column;
-        }
-        .filter-group label {
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 4px;
-            color: var(--primary);
-        }
-        .filter-group select {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 13px;
-            background-color: white;
-            cursor: pointer;
-        }
-        .stats-section {
-            display: none;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .stats-section.active {
-            display: grid;
-        }
-        .stat-card {
-            background: white;
-            padding: 20px;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            border-left: 4px solid var(--secondary);
-        }
-        .stat-card h3 {
-            font-size: 12px;
-            color: #7f8c8d;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .stat-card .value {
-            font-size: 28px;
-            font-weight: bold;
-            color: var(--primary);
-        }
-        .stat-card.success { border-left-color: var(--success); }
-        .stat-card.warning { border-left-color: var(--warning); }
-        .stat-card.danger { border-left-color: var(--danger); }
-        .charts-section {
-            display: none;
-        }
-        .charts-section.active {
-            display: block;
-        }
-        .chart-controls {
-            background: white;
-            padding: 20px;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            margin-bottom: 20px;
-        }
-        .chart-controls select {
-            width: 100%;
-            max-width: 400px;
-            padding: 10px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 13px;
-        }
-        .charts-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .chart-card {
-            background: white;
-            padding: 20px;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-        }
-        .chart-card h3 {
-            font-size: 14px;
-            margin-bottom: 15px;
-            color: var(--primary);
-            font-weight: 600;
-        }
-        .chart-container {
-            position: relative;
-            height: 300px;
-        }
-        .data-section {
-            background: white;
-            padding: 25px;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            display: none;
-            margin-top: 30px;
-        }
-        .data-section.active {
-            display: block;
-        }
-        .data-section h3 {
-            font-size: 16px;
-            margin-bottom: 15px;
-            color: var(--primary);
-        }
-        .table-wrapper {
-            overflow-x: auto;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-        thead {
-            background-color: #f8f9fa;
-        }
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #dee2e6;
-        }
-        th {
-            font-weight: 600;
-            color: var(--primary);
-        }
-        tbody tr:hover {
-            background-color: #f8f9fa;
-        }
-        .spinner {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid var(--secondary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 8px;
-            vertical-align: middle;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: #7f8c8d;
-        }
-        .tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #ecf0f1;
-        }
-        .tab-btn {
-            background: none;
-            border: none;
-            padding: 12px 20px;
-            cursor: pointer;
-            font-weight: 600;
-            color: #95a5a6;
-            border-bottom: 3px solid transparent;
-            transition: all 0.3s;
-            margin-bottom: -2px;
-        }
-        .tab-btn.active {
-            color: var(--secondary);
-            border-bottom-color: var(--secondary);
-        }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        @media (max-width: 768px) {
-            header h1 { font-size: 22px; }
-            .import-form { flex-direction: column; }
-            .form-group { min-width: 100%; }
-            .charts-grid { grid-template-columns: 1fr; }
-            .stats-section { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-        }
-        .progress-bar {
-            width: 100%;
-            height: 20px;
-            background-color: #ecf0f1;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-top: 10px;
-        }
-        .progress-fill {
-            height: 100%;
-            background-color: var(--secondary);
-            width: 0%;
-            transition: width 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 10px;
-            font-weight: bold;
-        }
-        .question-distribution {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 15px;
-        }
-        .question-card {
-            background: white;
-            padding: 15px;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-        }
-        .question-card h4 {
-            font-size: 13px;
-            margin-bottom: 12px;
-            color: var(--primary);
-            font-weight: 600;
-        }
-        .response-option {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-            font-size: 12px;
-        }
-        .response-bar {
-            flex: 1;
-            height: 24px;
-            background-color: #ecf0f1;
-            border-radius: 3px;
-            margin: 0 10px;
-            position: relative;
-            overflow: hidden;
-        }
-        .response-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--secondary), #2980b9);
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            padding-right: 5px;
-            color: white;
-            font-size: 11px;
-            font-weight: bold;
-        }
-        .response-label {
-            min-width: 80px;
-            font-size: 12px;
-        }
-        .response-count {
-            min-width: 50px;
-            text-align: right;
-            color: #7f8c8d;
-            font-size: 12px;
-        }
+        body { font-family: 'Segoe UI', sans-serif; background: #f5f7fa; color: var(--primary); line-height:1.6; }
+        header { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; padding: 30px 0; box-shadow: var(--shadow); margin-bottom: 30px; }
+        header h1 { font-size: 28px; margin-bottom:5px; }
+        .container { max-width:1400px; margin:0 auto; padding:0 20px; }
+        .import-section { background:white; padding:25px; border-radius:var(--border-radius); box-shadow:var(--shadow); margin-bottom:30px; }
+        .import-form { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
+        .form-group { flex:1; min-width:250px; }
+        .form-group label { display:block; margin-bottom:8px; font-weight:600; font-size:13px; }
+        .form-group input { width:100%; padding:10px 12px; border:1px solid #ddd; border-radius:4px; font-size:13px; }
+        button { padding:10px 24px; background:var(--secondary); color:white; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:13px; transition:0.3s; }
+        button:hover { background:#2980b9; transform:translateY(-2px); }
+        button.secondary { background:#95a5a6; }
+        button.secondary:hover { background:#7f8c8d; }
+        .status-message { padding:12px 16px; border-radius:4px; margin-top:15px; font-size:13px; display:none; }
+        .status-message.success { background:#d4edda; color:#155724; border:1px solid #c3e6cb; display:block; }
+        .status-message.error { background:#f8d7da; color:#721c24; border:1px solid #f5c6cb; display:block; }
+        .status-message.info { background:#d1ecf1; color:#0c5460; border:1px solid #bee5eb; display:block; }
+        .filters-section { background:white; padding:25px; border-radius:var(--border-radius); box-shadow:var(--shadow); margin-bottom:30px; display:none; }
+        .filters-section.active { display:block; }
+        .filters-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:15px; }
+        .filter-group { display:flex; flex-direction:column; }
+        .filter-group label { font-size:12px; font-weight:600; margin-bottom:4px; }
+        .filter-group select { padding:8px 12px; border:1px solid #ddd; border-radius:4px; font-size:13px; background:white; }
+        .stats-section { display:none; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:20px; margin-bottom:30px; }
+        .stats-section.active { display:grid; }
+        .stat-card { background:white; padding:20px; border-radius:var(--border-radius); box-shadow:var(--shadow); border-left:4px solid var(--secondary); }
+        .stat-card h3 { font-size:12px; color:#7f8c8d; text-transform:uppercase; margin-bottom:10px; }
+        .stat-card .value { font-size:28px; font-weight:bold; color:var(--primary); }
+        .stat-card.success { border-left-color:var(--success); }
+        .stat-card.warning { border-left-color:var(--warning); }
+        .stat-card.danger { border-left-color:var(--danger); }
+        .charts-section { display:none; }
+        .charts-section.active { display:block; }
+        .chart-controls { background:white; padding:20px; border-radius:var(--border-radius); box-shadow:var(--shadow); margin-bottom:20px; }
+        .chart-controls select { width:100%; max-width:400px; padding:10px 12px; border:1px solid #ddd; border-radius:4px; font-size:13px; }
+        .charts-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(450px,1fr)); gap:20px; margin-bottom:30px; }
+        .chart-card { background:white; padding:20px; border-radius:var(--border-radius); box-shadow:var(--shadow); }
+        .chart-card h3 { font-size:14px; margin-bottom:15px; font-weight:600; }
+        .chart-container { position:relative; height:300px; }
+        .data-section { background:white; padding:25px; border-radius:var(--border-radius); box-shadow:var(--shadow); display:none; margin-top:30px; }
+        .data-section.active { display:block; }
+        .table-wrapper { overflow-x:auto; }
+        table { width:100%; border-collapse:collapse; font-size:13px; }
+        thead { background:#f8f9fa; }
+        th, td { padding:12px; text-align:left; border-bottom:1px solid #dee2e6; }
+        th { font-weight:600; }
+        tbody tr:hover { background:#f8f9fa; }
+        .spinner { display:inline-block; width:16px; height:16px; border:2px solid #f3f3f3; border-top:2px solid var(--secondary); border-radius:50%; animation:spin 1s linear infinite; margin-right:8px; vertical-align:middle; }
+        @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+        .empty-state { text-align:center; padding:40px; color:#7f8c8d; }
+        .tabs { display:flex; gap:10px; margin-bottom:20px; border-bottom:2px solid #ecf0f1; }
+        .tab-btn { background:none; border:none; padding:12px 20px; cursor:pointer; font-weight:600; color:#95a5a6; border-bottom:3px solid transparent; transition:0.3s; margin-bottom:-2px; }
+        .tab-btn.active { color:var(--secondary); border-bottom-color:var(--secondary); }
+        .tab-content { display:none; }
+        .tab-content.active { display:block; }
+        .progress-bar { width:100%; height:20px; background:#ecf0f1; border-radius:10px; overflow:hidden; margin-top:10px; }
+        .progress-fill { height:100%; background:var(--secondary); width:0%; transition:width 0.3s; display:flex; align-items:center; justify-content:center; color:white; font-size:10px; font-weight:bold; }
+        .question-distribution { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px,1fr)); gap:15px; }
+        .question-card { background:white; padding:15px; border-radius:var(--border-radius); box-shadow:var(--shadow); }
+        .question-card h4 { font-size:13px; margin-bottom:12px; font-weight:600; }
+        .response-option { display:flex; align-items:center; margin-bottom:10px; font-size:12px; }
+        .response-bar { flex:1; height:24px; background:#ecf0f1; border-radius:3px; margin:0 10px; overflow:hidden; }
+        .response-fill { height:100%; background:linear-gradient(90deg, var(--secondary), #2980b9); display:flex; align-items:center; justify-content:flex-end; padding-right:5px; color:white; font-size:11px; font-weight:bold; }
+        .response-label { min-width:80px; }
+        .response-count { min-width:50px; text-align:right; color:#7f8c8d; }
+        @media (max-width:768px) { header h1 { font-size:22px; } .import-form { flex-direction:column; } .form-group { min-width:100%; } .charts-grid { grid-template-columns:1fr; } }
     </style>
 </head>
 <body>
@@ -421,23 +89,21 @@
     </header>
 
     <div class="container">
-        <!-- Seção de Importação -->
+        <!-- Importação -->
         <div class="import-section">
-            <h2>🔗 Importar Dados de Respostas</h2>
-            <p style="margin-bottom: 15px; color: #7f8c8d; font-size: 13px;">
-                Cole o link da planilha Google Sheets (compartilhada com "Qualquer pessoa com o link pode ver").
-            </p>
+            <h2>🔗 Importar Dados</h2>
+            <p style="margin-bottom:15px; color:#7f8c8d; font-size:13px;">Cole a URL da planilha Google Sheets (pública) ou use dados de exemplo.</p>
             <div class="import-form">
                 <div class="form-group">
                     <label for="sheetsUrl">URL da Planilha:</label>
-                    <input type="text" id="sheetsUrl" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
+                    <input type="text" id="sheetsUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
                 </div>
                 <button id="importBtn" onclick="importarDados()">📥 Importar</button>
                 <button class="secondary" onclick="carregarExemplo()">📋 Dados de Exemplo</button>
             </div>
             <div id="statusMessage" class="status-message"></div>
-            <div id="progressContainer" style="display: none;">
-                <p style="font-size: 13px; margin-bottom: 10px;">Processando...</p>
+            <div id="progressContainer" style="display:none;">
+                <p style="font-size:13px; margin-bottom:10px;">Processando...</p>
                 <div class="progress-bar"><div id="progressFill" class="progress-fill">0%</div></div>
             </div>
         </div>
@@ -445,29 +111,15 @@
         <!-- Filtros -->
         <div id="filtersSection" class="filters-section">
             <h3>🔍 Filtros</h3>
-            <div class="filters-grid" id="filtersGrid">
-                <!-- Preenchido dinamicamente -->
-            </div>
+            <div id="filtersGrid" class="filters-grid"></div>
         </div>
 
         <!-- Estatísticas -->
         <div id="statsSection" class="stats-section">
-            <div class="stat-card">
-                <h3>Total de Respostas</h3>
-                <div class="value" id="totalRespostas">0</div>
-            </div>
-            <div class="stat-card success">
-                <h3>Colunas (Perguntas)</h3>
-                <div class="value" id="totalColunas">0</div>
-            </div>
-            <div class="stat-card warning">
-                <h3>Respostas Válidas</h3>
-                <div class="value" id="respostasValidas">0</div>
-            </div>
-            <div class="stat-card danger">
-                <h3>Status</h3>
-                <div class="value" id="statusDados">Carregando</div>
-            </div>
+            <div class="stat-card"><h3>Total de Respostas</h3><div class="value" id="totalRespostas">0</div></div>
+            <div class="stat-card success"><h3>Colunas (Perguntas)</h3><div class="value" id="totalColunas">0</div></div>
+            <div class="stat-card warning"><h3>Respostas Válidas</h3><div class="value" id="respostasValidas">0</div></div>
+            <div class="stat-card danger"><h3>Status</h3><div class="value" id="statusDados">⏳</div></div>
         </div>
 
         <!-- Gráficos -->
@@ -478,13 +130,10 @@
                 <button class="tab-btn" onclick="selecionarTab(event, 'dados-brutos')">Dados Brutos</button>
             </div>
 
-            <!-- Tab: Visão Geral -->
             <div id="tab-visao-geral" class="tab-content active">
                 <div class="chart-controls">
-                    <label for="chartTypeGeral" style="display: block; margin-bottom: 10px; font-weight: 600;">Selecione a pergunta:</label>
-                    <select id="chartTypeGeral" onchange="atualizarGraficoVisaoGeral()">
-                        <option value="">Carregando perguntas...</option>
-                    </select>
+                    <label for="chartTypeGeral" style="display:block; margin-bottom:10px; font-weight:600;">Pergunta:</label>
+                    <select id="chartTypeGeral" onchange="atualizarGraficoVisaoGeral()"><option>Carregando...</option></select>
                 </div>
                 <div class="charts-grid">
                     <div class="chart-card">
@@ -494,25 +143,23 @@
                 </div>
             </div>
 
-            <!-- Tab: Clima Escolar -->
             <div id="tab-clima-escolar" class="tab-content">
                 <div class="charts-grid">
                     <div class="chart-card">
-                        <h3>Distribuição por Categoria (se disponível)</h3>
+                        <h3>Concordância (Clima Escolar)</h3>
                         <div class="chart-container"><canvas id="chartClima"></canvas></div>
                     </div>
                 </div>
                 <div id="climaDetalhes" class="question-distribution"></div>
             </div>
 
-            <!-- Tab: Dados Brutos -->
             <div id="tab-dados-brutos" class="tab-content">
                 <div class="data-section active">
                     <h3>Tabela de Respostas (primeiras 100 linhas)</h3>
                     <div class="table-wrapper">
                         <table id="dataTable">
-                            <thead id="dataTableHead"><tr></tr></thead>
-                            <tbody id="dataTableBody"><tr><td colspan="10" class="empty-state">Nenhum dado importado.</td></tr></tbody>
+                            <thead id="dataTableHead"></thead>
+                            <tbody id="dataTableBody"><tr><td colspan="10" class="empty-state">Nenhum dado carregado.</td></tr></tbody>
                         </table>
                     </div>
                 </div>
@@ -525,24 +172,21 @@
 
     <script>
         // ============================================================
-        // VARIÁVEIS GLOBAIS
+        // VARIÁVEIS
         // ============================================================
         let respostasOriginais = [];
         let respostasFiltradas = [];
         let chartsInstancias = {};
         let colunasDisponiveis = [];
 
-        const OPCOES_PADRAO = {
-            'Concordo muito': 4,
-            'Concordo': 3,
-            'Discordo': 2,
-            'Discordo muito': 1,
-            'Sim': 1,
-            'Não': 0
+        const OPCOES = {
+            'Concordo muito': 4, 'Concordo': 3,
+            'Discordo': 2, 'Discordo muito': 1,
+            'Sim': 1, 'Não': 0
         };
 
         // ============================================================
-        // FUNÇÕES PRINCIPAIS
+        // FUNÇÕES DE IMPORTAÇÃO
         // ============================================================
 
         async function importarDados() {
@@ -552,8 +196,7 @@
             const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
             if (!match) { mostrarStatus('URL inválida.', 'error'); return; }
 
-            const sheetId = match[1];
-            const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+            const csvUrl = `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv`;
 
             try {
                 document.getElementById('importBtn').disabled = true;
@@ -564,17 +207,34 @@
                 if (!response.ok) throw new Error('Não foi possível acessar a planilha (verifique o compartilhamento).');
                 const csv = await response.text();
 
+                console.log('CSV obtido, tamanho:', csv.length);
                 processarDados(csv);
                 mostrarStatus('✅ Dados importados com sucesso!', 'success');
             } catch (err) {
                 mostrarStatus('❌ Erro: ' + err.message, 'error');
+                console.error('Erro na importação:', err);
             } finally {
                 document.getElementById('importBtn').disabled = false;
                 document.getElementById('progressContainer').style.display = 'none';
             }
         }
 
+        function carregarExemplo() {
+            const csv = `Timestamp,Email,Qual escola você estuda?,Ano,Turno,Sexo,Idade,Professores se preocupam,Alunos são amigáveis,Escola é segura,Regras são justas,Alunos prestam atenção
+2024-01-10,aluno1@example.com,EM Abdon Baptista,8º ano,Matutino,Feminino,14 anos,Concordo muito,Concordo muito,Concordo muito,Concordo muito,Concordo muito
+2024-01-10,aluno2@example.com,EM Abdon Baptista,8º ano,Matutino,Masculino,15 anos,Concordo,Concordo,Concordo,Concordo,Concordo
+2024-01-10,aluno3@example.com,EM Ada Sant'Anna,7º ano,Vespertino,Feminino,13 anos,Discordo,Concordo muito,Discordo muito,Concordo,Concordo muito
+2024-01-10,aluno4@example.com,EM Amador Aguiar,9º ano,Noturno,Masculino,16 anos,Concordo muito,Concordo,Concordo,Discordo,Concordo muito
+2024-01-10,aluno5@example.com,EM Abdon Baptista,8º ano,Vespertino,Feminino,14 anos,Concordo,Concordo muito,Concordo muito,Concordo muito,Concordo`;
+            processarDados(csv);
+        }
+
+        // ============================================================
+        // PROCESSAMENTO DOS DADOS
+        // ============================================================
+
         function processarDados(csv) {
+            console.log('processarDados chamado, Papa disponível?', typeof Papa !== 'undefined');
             if (typeof Papa === 'undefined') {
                 mostrarStatus('Erro: Papa Parse não carregado. Recarregue a página.', 'error');
                 return;
@@ -584,14 +244,15 @@
                 header: true,
                 skipEmptyLines: true,
                 complete: function(results) {
-                    console.log('Dados brutos:', results.data.length, 'linhas');
-                    if (results.data.length === 0) {
-                        mostrarStatus('A planilha está vazia.', 'error');
-                        return;
-                    }
+                    console.log('Papa.parse completo. Linhas:', results.data.length);
+                    console.log('Colunas:', Object.keys(results.data[0] || {}));
 
-                    // Remove linhas totalmente vazias
-                    const dados = results.data.filter(row => Object.values(row).some(v => v && v.trim() !== ''));
+                    // Filtra linhas vazias
+                    const dados = results.data.filter(row => 
+                        Object.values(row).some(v => v && v.trim() !== '')
+                    );
+                    console.log('Linhas válidas:', dados.length);
+
                     if (dados.length === 0) {
                         mostrarStatus('Nenhuma linha com dados válidos.', 'error');
                         return;
@@ -600,51 +261,28 @@
                     respostasOriginais = dados;
                     respostasFiltradas = [...dados];
                     colunasDisponiveis = Object.keys(dados[0] || {});
+                    console.log('Colunas disponíveis:', colunasDisponiveis);
 
-                    console.log('Colunas encontradas:', colunasDisponiveis);
-                    console.log('Primeira linha:', dados[0]);
-
-                    // Atualiza a interface
+                    // ATUALIZA TODA A INTERFACE
                     atualizarInterfaceCompleta();
 
-                    // Exibe as seções
-                    document.getElementById('filtersSection').classList.add('active');
-                    document.getElementById('statsSection').classList.add('active');
-                    document.getElementById('chartsSection').classList.add('active');
+                    // Exibe as seções (forçando display)
+                    const filters = document.getElementById('filtersSection');
+                    const stats = document.getElementById('statsSection');
+                    const charts = document.getElementById('chartsSection');
+                    filters.classList.add('active');
+                    stats.classList.add('active');
+                    charts.classList.add('active');
+                    // Garantir que a primeira tab esteja ativa
+                    document.querySelector('.tab-btn.active')?.click();
 
-                    mostrarStatus(`✅ ${dados.length} respostas carregadas.`, 'success');
+                    mostrarStatus(`✅ ${dados.length} respostas carregadas. ${colunasDisponiveis.length} colunas.`, 'success');
                 },
                 error: function(err) {
                     mostrarStatus('Erro ao processar CSV: ' + err.message, 'error');
+                    console.error('Papa.parse error:', err);
                 }
             });
-        }
-
-        function carregarExemplo() {
-            if (typeof Papa === 'undefined') {
-                mostrarStatus('Erro: Papa Parse não carregado.', 'error');
-                return;
-            }
-
-            const csvExemplo = `Timestamp,Email,Qual escola você estuda?,Em que ano você está?,Turno,Sexo,Idade,Os professores se preocupam com os alunos?,Os alunos são amigáveis?,A escola é segura?,As regras são justas?,Os alunos prestam atenção?
-2024-01-10,aluno1@example.com,EM Abdon Baptista,8º ano,Matutino,Feminino,14 anos,Concordo muito,Concordo muito,Concordo muito,Concordo muito,Concordo muito
-2024-01-10,aluno2@example.com,EM Abdon Baptista,8º ano,Matutino,Masculino,15 anos,Concordo,Concordo,Concordo,Concordo,Concordo
-2024-01-10,aluno3@example.com,EM Ada Sant'Anna,7º ano,Vespertino,Feminino,13 anos,Discordo,Concordo muito,Discordo muito,Concordo,Concordo muito
-2024-01-10,aluno4@example.com,EM Amador Aguiar,9º ano,Noturno,Masculino,16 anos,Concordo muito,Concordo,Concordo,Discordo,Concordo muito
-2024-01-10,aluno5@example.com,EM Abdon Baptista,8º ano,Vespertino,Feminino,14 anos,Concordo,Concordo muito,Concordo muito,Concordo muito,Concordo`;
-
-            const result = Papa.parse(csvExemplo, { header: true });
-            respostasOriginais = result.data.filter(r => r.Timestamp);
-            respostasFiltradas = [...respostasOriginais];
-            colunasDisponiveis = Object.keys(respostasOriginais[0] || {});
-
-            atualizarInterfaceCompleta();
-
-            document.getElementById('filtersSection').classList.add('active');
-            document.getElementById('statsSection').classList.add('active');
-            document.getElementById('chartsSection').classList.add('active');
-
-            mostrarStatus('✅ Dados de exemplo carregados!', 'success');
         }
 
         // ============================================================
@@ -652,29 +290,28 @@
         // ============================================================
 
         function atualizarInterfaceCompleta() {
+            console.log('atualizarInterfaceCompleta iniciada');
             atualizarFiltros();
             atualizarEstatisticas();
             atualizarSeletorPerguntas();
             atualizarTabelaDados();
             atualizarGraficos();
-            // Atualiza a tab de clima escolar com um gráfico genérico
-            atualizarGraficoClimaEscolar();
+            console.log('atualizarInterfaceCompleta finalizada');
         }
 
         // ----- FILTROS -----
         function atualizarFiltros() {
             const grid = document.getElementById('filtersGrid');
             grid.innerHTML = '';
-
-            // Tenta identificar colunas que podem ser filtros (categóricas com poucos valores únicos)
+            // Identifica colunas com poucos valores únicos (categóricas)
             const candidatas = colunasDisponiveis.filter(col => {
-                const valores = respostasOriginais.map(r => r[col]).filter(Boolean);
-                const unicos = new Set(valores);
-                return unicos.size > 1 && unicos.size <= 20 && valores.length > 5;
+                const vals = respostasOriginais.map(r => r[col]).filter(Boolean);
+                const unicos = new Set(vals);
+                return unicos.size > 1 && unicos.size <= 20 && vals.length > 5;
             });
 
             if (candidatas.length === 0) {
-                grid.innerHTML = '<p style="font-size:13px;color:#7f8c8d;">Nenhuma coluna categórica identificada para filtros.</p>';
+                grid.innerHTML = '<p style="font-size:13px;color:#7f8c8d;">Nenhum filtro disponível.</p>';
                 return;
             }
 
@@ -718,13 +355,12 @@
             document.getElementById('totalColunas').textContent = colunasDisponiveis.length;
             const validas = respostasFiltradas.filter(r => Object.values(r).some(v => v && v.trim() !== '')).length;
             document.getElementById('respostasValidas').textContent = validas;
-            document.getElementById('statusDados').textContent = validas > 0 ? 'OK' : 'Sem dados';
+            document.getElementById('statusDados').textContent = validas > 0 ? '✅' : '⛔';
         }
 
-        // ----- SELETOR DE PERGUNTAS (Visão Geral) -----
+        // ----- SELETOR DE PERGUNTAS -----
         function atualizarSeletorPerguntas() {
             const select = document.getElementById('chartTypeGeral');
-            // Filtra colunas que não são Timestamp/Email e que têm valores variados
             const perguntas = colunasDisponiveis.filter(col => {
                 if (['Timestamp', 'Email', 'Carimbo de data/hora'].includes(col)) return false;
                 const vals = respostasOriginais.map(r => r[col]).filter(Boolean);
@@ -735,13 +371,11 @@
                 select.innerHTML = '<option value="">Nenhuma pergunta com dados variados</option>';
                 return;
             }
-
-            select.innerHTML = perguntas.map((p, idx) => `<option value="${idx}">${p}</option>`).join('');
-            // Força atualização do gráfico
+            select.innerHTML = perguntas.map((p, i) => `<option value="${i}">${p}</option>`).join('');
             atualizarGraficoVisaoGeral();
         }
 
-        // ----- TABELA DE DADOS -----
+        // ----- TABELA -----
         function atualizarTabelaDados() {
             const thead = document.getElementById('dataTableHead');
             const tbody = document.getElementById('dataTableBody');
@@ -752,15 +386,11 @@
                 return;
             }
 
-            // Mostra no máximo 10 colunas (para não poluir)
-            let colunasParaExibir = colunasDisponiveis.slice(0, 10);
-            if (colunasParaExibir.length === 0) colunasParaExibir = ['Nenhuma coluna'];
-
-            thead.innerHTML = `<tr>${colunasParaExibir.map(c => `<th>${c}</th>`).join('')}</tr>`;
-
+            const colunas = colunasDisponiveis.slice(0, 10); // limita a 10 colunas
+            thead.innerHTML = `<tr>${colunas.map(c => `<th>${c}</th>`).join('')}</tr>`;
             const linhas = respostasFiltradas.slice(0, 100);
             tbody.innerHTML = linhas.map(row => `
-                <tr>${colunasParaExibir.map(c => `<td>${row[c] || '-'}</td>`).join('')}</tr>
+                <tr>${colunas.map(c => `<td>${row[c] || '-'}</td>`).join('')}</tr>
             `).join('');
         }
 
@@ -776,14 +406,13 @@
             if (isNaN(idx)) return;
 
             const perguntas = colunasDisponiveis.filter(col => {
-                if (['Timestamp', 'Email', 'Carimbo de data/hora'].includes(col)) return false;
+                if (['Timestamp','Email','Carimbo de data/hora'].includes(col)) return false;
                 const vals = respostasOriginais.map(r => r[col]).filter(Boolean);
                 return vals.length > 1 && new Set(vals).size > 1;
             });
 
             if (idx >= perguntas.length) return;
             const pergunta = perguntas[idx];
-
             const respostas = respostasFiltradas.map(r => r[pergunta]).filter(Boolean);
             if (respostas.length === 0) {
                 if (chartsInstancias.chartGeral) chartsInstancias.chartGeral.destroy();
@@ -793,19 +422,16 @@
             const contagem = {};
             respostas.forEach(v => { contagem[v] = (contagem[v] || 0) + 1; });
 
-            const labels = Object.keys(contagem);
-            const dados = Object.values(contagem);
-
             const ctx = document.getElementById('chartGeral');
             if (chartsInstancias.chartGeral) chartsInstancias.chartGeral.destroy();
 
             chartsInstancias.chartGeral = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: labels,
+                    labels: Object.keys(contagem),
                     datasets: [{
                         label: 'Respostas',
-                        data: dados,
+                        data: Object.values(contagem),
                         backgroundColor: ['#3498db','#2ecc71','#f39c12','#e74c3c','#9b59b6'],
                         borderRadius: 4
                     }]
@@ -820,41 +446,33 @@
         }
 
         function atualizarGraficoClimaEscolar() {
-            // Tenta identificar perguntas que pareçam com clima escolar (contém palavras-chave)
-            const palavrasChave = ['professor', 'amigável', 'segura', 'regra', 'atenção', 'preocupam', 'justas', 'clima'];
-            const perguntasClima = colunasDisponiveis.filter(col => {
-                const lower = col.toLowerCase();
-                return palavrasChave.some(p => lower.includes(p));
-            });
+            const palavras = ['professor','amigável','segura','regra','atenção','preocupam','justas','clima'];
+            const perguntas = colunasDisponiveis.filter(col => 
+                palavras.some(p => col.toLowerCase().includes(p))
+            );
 
             const ctx = document.getElementById('chartClima');
             if (chartsInstancias.chartClima) chartsInstancias.chartClima.destroy();
 
-            if (perguntasClima.length === 0) {
-                // Exibe mensagem no lugar do gráfico
+            if (perguntas.length === 0) {
                 document.getElementById('climaDetalhes').innerHTML = '<p class="empty-state">Nenhuma pergunta de clima escolar identificada.</p>';
                 return;
             }
 
-            // Calcula a média de concordância (usando OPCOES_PADRAO) para cada pergunta
             const medias = {};
-            perguntasClima.forEach(p => {
+            perguntas.forEach(p => {
                 const respostas = respostasFiltradas.map(r => r[p]).filter(Boolean);
-                const pontos = respostas.map(r => OPCOES_PADRAO[r] || 0);
-                const media = pontos.length ? pontos.reduce((a,b) => a+b, 0) / pontos.length : 0;
-                medias[p] = media;
+                const pontos = respostas.map(r => OPCOES[r] || 0);
+                medias[p] = pontos.length ? pontos.reduce((a,b) => a+b, 0) / pontos.length : 0;
             });
-
-            const labels = Object.keys(medias).map(p => p.substring(0,30) + (p.length>30?'...':''));
-            const dados = Object.values(medias);
 
             chartsInstancias.chartClima = new Chart(ctx, {
                 type: 'radar',
                 data: {
-                    labels: labels,
+                    labels: Object.keys(medias).map(p => p.substring(0,30) + (p.length>30?'...':'')),
                     datasets: [{
                         label: 'Concordância média (0-4)',
-                        data: dados,
+                        data: Object.values(medias),
                         borderColor: '#3498db',
                         backgroundColor: 'rgba(52,152,219,0.1)',
                         borderWidth: 2,
@@ -870,13 +488,13 @@
                 }
             });
 
-            // Detalhes das perguntas (barras de distribuição)
-            const detalhesHtml = perguntasClima.map(p => {
+            // Detalhes em barras
+            const detalhes = perguntas.map(p => {
                 const respostas = respostasFiltradas.map(r => r[p]).filter(Boolean);
                 const contagem = {};
                 respostas.forEach(v => { contagem[v] = (contagem[v] || 0) + 1; });
                 const total = respostas.length;
-                const opcoes = ['Discordo muito', 'Discordo', 'Concordo', 'Concordo muito'];
+                const opcoes = ['Discordo muito','Discordo','Concordo','Concordo muito'];
 
                 return `
                     <div class="question-card">
@@ -897,8 +515,7 @@
                     </div>
                 `;
             }).join('');
-
-            document.getElementById('climaDetalhes').innerHTML = detalhesHtml;
+            document.getElementById('climaDetalhes').innerHTML = detalhes;
         }
 
         // ----- TABS -----
@@ -908,7 +525,6 @@
             document.getElementById(`tab-${tabName}`).classList.add('active');
             if (event && event.target) event.target.classList.add('active');
 
-            // Redimensiona gráficos ao trocar de tab
             setTimeout(() => {
                 if (tabName === 'visao-geral' && chartsInstancias.chartGeral) chartsInstancias.chartGeral.resize();
                 if (tabName === 'clima-escolar' && chartsInstancias.chartClima) chartsInstancias.chartClima.resize();
@@ -924,10 +540,10 @@
             if (tipo === 'success') setTimeout(() => el.style.display = 'none', 5000);
         }
 
-        // Inicialização (carrega estrutura, mas não afeta os dados)
+        // Inicialização
         document.addEventListener('DOMContentLoaded', function() {
-            // Apenas prepara a interface
             console.log('Dashboard carregada. Aguardando dados.');
+            // Já mostra a mensagem inicial
         });
     </script>
 </body>
