@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Pesquisa de Clima Escolar Joinville</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Papa/5.4.1/papaparse.min.js"></script>
+    <!-- Removido defer dos scripts para garantir que estejam carregados antes do uso -->
     <style>
+        /* (mantido exatamente igual ao original) */
         * {
             margin: 0;
             padding: 0;
@@ -56,7 +56,6 @@
             padding: 0 20px;
         }
 
-        /* Seção de Importação */
         .import-section {
             background: white;
             padding: 25px;
@@ -164,7 +163,6 @@
             display: block;
         }
 
-        /* Filtros */
         .filters-section {
             background: white;
             padding: 25px;
@@ -200,7 +198,6 @@
             cursor: pointer;
         }
 
-        /* Estatísticas */
         .stats-section {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -242,7 +239,6 @@
             border-left-color: var(--danger);
         }
 
-        /* Seção de Gráficos */
         .charts-section {
             display: none;
         }
@@ -294,7 +290,6 @@
             height: 300px;
         }
 
-        /* Tabela de Respostas */
         .data-section {
             background: white;
             padding: 25px;
@@ -343,7 +338,6 @@
             background-color: #f8f9fa;
         }
 
-        /* Loading */
         .spinner {
             display: inline-block;
             width: 16px;
@@ -374,7 +368,6 @@
             opacity: 0.5;
         }
 
-        /* Tabs */
         .tabs {
             display: flex;
             gap: 10px;
@@ -407,7 +400,6 @@
             display: block;
         }
 
-        /* Responsivo */
         @media (max-width: 768px) {
             header h1 {
                 font-size: 22px;
@@ -615,9 +607,9 @@
         <div id="chartsSection" class="charts-section">
             <!-- Tabs -->
             <div class="tabs">
-                <button class="tab-btn active" onclick="selecionarTab('visao-geral')">Visão Geral</button>
-                <button class="tab-btn" onclick="selecionarTab('clima-escolar')">Clima Escolar</button>
-                <button class="tab-btn" onclick="selecionarTab('dados-brutos')">Dados Brutos</button>
+                <button class="tab-btn active" onclick="selecionarTab(event, 'visao-geral')">Visão Geral</button>
+                <button class="tab-btn" onclick="selecionarTab(event, 'clima-escolar')">Clima Escolar</button>
+                <button class="tab-btn" onclick="selecionarTab(event, 'dados-brutos')">Dados Brutos</button>
             </div>
 
             <!-- Tab: Visão Geral -->
@@ -693,6 +685,10 @@
             </div>
         </div>
     </div>
+
+    <!-- Carregar bibliotecas ANTES do script principal, sem 'defer' -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Papa/5.4.1/papaparse.min.js"></script>
 
     <script>
         // Estrutura das perguntas (será preenchida com dados reais)
@@ -783,6 +779,12 @@
 
         // Processar dados CSV
         function processarDados(csv) {
+            // Verifica se Papa está disponível
+            if (typeof Papa === 'undefined') {
+                mostrarStatus('Erro: Biblioteca Papa Parse não carregada. Recarregue a página.', 'error');
+                return;
+            }
+
             Papa.parse(csv, {
                 header: true,
                 skipEmptyLines: true,
@@ -805,12 +807,20 @@
                     document.getElementById('filtersSection').classList.add('active');
                     document.getElementById('statsSection').style.display = 'grid';
                     document.getElementById('chartsSection').classList.add('active');
+                },
+                error: function(error) {
+                    mostrarStatus(`Erro ao processar CSV: ${error.message}`, 'error');
                 }
             });
         }
 
         // Carregar dados de exemplo
         function carregarExemplo() {
+            if (typeof Papa === 'undefined') {
+                mostrarStatus('Erro: Biblioteca Papa Parse não carregada. Recarregue a página.', 'error');
+                return;
+            }
+
             const exemploCSV = `Timestamp,Email,Você concorda em participar dessa pesquisa?,Você é do sexo feminino ou masculino?,Qual é a sua idade?,Em qual escola você estuda?,Em que ano escolar você está?,Em que turno escolar você está?,Os professores se preocupam com os seus alunos.,Os alunos são amigáveis uns com os outros.,Esta escola é segura.,As regras da escola são justas.,A maioria dos alunos presta atenção nas aulas.
 2024-01-10 10:30:00,aluno1@example.com,Sim,Feminino,14 anos,EM Abdon Baptista,8º ano do Ensino Fundamental,Matutino,Concordo muito,Concordo muito,Concordo muito,Concordo muito,Concordo muito
 2024-01-10 10:32:00,aluno2@example.com,Sim,Masculino,15 anos,EM Abdon Baptista,8º ano do Ensino Fundamental,Matutino,Concordo,Concordo,Concordo,Concordo,Concordo
@@ -823,7 +833,8 @@
 2024-01-10 10:50:00,aluno9@example.com,Sim,Feminino,16 anos,EM Arinor Vogelsanger,9º ano do Ensino Fundamental,Noturno,Concordo muito,Concordo muito,Concordo muito,Concordo muito,Concordo muito
 2024-01-10 10:52:00,aluno10@example.com,Sim,Masculino,13 anos,EM Avelino Marcante,7º ano do Ensino Fundamental,Matutino,Concordo,Discordo,Concordo,Discordo muito,Concordo`;
 
-            respostasOriginais = Papa.parse(exemploCSV, { header: true }).data.filter(r => r.Timestamp);
+            const resultado = Papa.parse(exemploCSV, { header: true });
+            respostasOriginais = resultado.data.filter(r => r.Timestamp);
             respostasFiltradas = [...respostasOriginais];
 
             atualizarInterface();
@@ -1103,8 +1114,8 @@
             `).join('');
         }
 
-        // Selecionar tab
-        function selecionarTab(tabName) {
+        // Selecionar tab (corrigido: event como parâmetro)
+        function selecionarTab(event, tabName) {
             // Desativar todas as tabs
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
@@ -1115,7 +1126,9 @@
 
             // Ativar tab selecionada
             document.getElementById(`tab-${tabName}`).classList.add('active');
-            event.target.classList.add('active');
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
 
             // Recriar gráficos se necessário
             setTimeout(() => {
