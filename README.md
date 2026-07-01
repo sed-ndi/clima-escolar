@@ -18,16 +18,12 @@ Os resultados subsidiam **tomadas de decisão baseadas em evidências** para pro
 ## 🚀 Como Usar
 
 ### Opção 1: Abrir Localmente
-Baixe o arquivo `dashboard_clima_escolar.html` e abra-o diretamente no navegador (duplo clique).
+Baixe o arquivo `index.html` e abra-o diretamente no navegador (duplo clique).
 
-### Opção 2: Publicar em GitHub Pages
-1. Faça fork ou clone este repositório
-2. Adicione `dashboard_clima_escolar.html` à raiz ou pasta `/docs`
-3. Ative GitHub Pages nas configurações do repositório
-4. Acesse via `https://seu-usuario.github.io/seu-repo/dashboard_clima_escolar.html`
+### Opção 2: Acessar em GitHub Pages
+1. Acesse o link `https://sed-ndi.github.io/clima-escolar`
+2. Clique em `Carregar dashboard`
 
-### Opção 3: Hospedar em Servidor Estático
-Coloque o arquivo em qualquer servidor web estático (Vercel, Netlify, Surge, etc.).
 
 ## 📊 Funcionalidades
 
@@ -38,18 +34,6 @@ Coloque o arquivo em qualquer servidor web estático (Vercel, Netlify, Surge, et
 - ✅ **Gráficos interativos** — Barras, pizza, scatter plots e matriz de correlação
 - ✅ **Cálculo automático de índices** — Scores padronizados para cada dimensão da pesquisa
 - ✅ **Funciona offline** — Sem necessidade de backend ou servidor; roda 100% no navegador
-
-## 📋 Formato de Dados
-
-O CSV de entrada deve conter as seguintes colunas (conforme estrutura do formulário Joinville):
-
-```
-escola, ano, turno, sexo, q01_clima_a, q02_clima_b, ..., q35_familia_apoio, ...
-```
-
-Consulte `Estrutura do Formulário_ Pesquisa de Clima Escolar de Joinville.xlsx` para a lista completa de colunas e escalas de resposta.
-
-**Exemplo:** Um arquivo de teste com 602 respostas simuladas (`exemplo_respostas_teste.csv`) está incluído.
 
 ## 🛠️ Especificações Técnicas
 
@@ -70,14 +54,6 @@ O projeto baseia-se em:
 
 Para detalhes completos, consulte: *"Projeto de Pesquisa - Diagnóstico de Clima Escolar da Rede Municipal de Joinville"*
 
-## 📝 Estrutura de Pastas
-
-```
-├── dashboard_clima_escolar.html    # Dashboard pronto para uso
-├── exemplo_respostas_teste.csv     # Dados de teste para validação
-├── README.md                        # Este arquivo
-└── LICENSE                          # Licença (se aplicável)
-```
 
 ## 🔒 Privacidade e Segurança
 
