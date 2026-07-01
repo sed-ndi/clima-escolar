@@ -21,7 +21,7 @@ Os resultados subsidiam **tomadas de decisão baseadas em evidências** para pro
 Baixe o arquivo `index.html` e abra-o diretamente no navegador (duplo clique).
 
 ### Opção 2: Acessar em GitHub Pages
-1. Acesse o link `https://sed-ndi.github.io/clima-escolar`
+1. Acesse o link [https://sed-ndi.github.io/clima-escolar](https://sed-ndi.github.io/clima-escolar)
 2. Clique em `Carregar dashboard`
 
 
