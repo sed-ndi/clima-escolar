@@ -171,14 +171,14 @@ table.simple tr:hover td{background:#fafbfe}
       <span class="badge">Correlações</span>
     </div>
 
-    <div class="tabsel">
+    <div class="tabsel" style="display:none">
       <button class="active" data-pane="url">Link do Google Sheets</button>
       <button data-pane="file">Enviar arquivo</button>
       <button data-pane="paste">Colar dados</button>
     </div>
 
     <div id="pane-url" class="load-pane active">
-      <div class="form-row">
+      <div class="form-row" style="display:none">
         <p class="field-label">Link da planilha de respostas (Google Sheets)</p>
         <input type="url" id="inputUrl" placeholder="https://docs.google.com/spreadsheets/d/....../edit?usp=sharing" value="https://docs.google.com/spreadsheets/d/1cDBLGuoJg0XpK8XJ20Q8DKwd1UIjflv2d7yXLZQuKCs">
         <small class="hint">A planilha precisa estar compartilhada como "Qualquer pessoa com o link — Leitor". O link pode ser o de edição normal; a dashboard converte automaticamente para exportação em CSV.</small>
