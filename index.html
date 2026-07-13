@@ -1161,14 +1161,15 @@ if (typeof module !== "undefined") {
         <div class="card"><h3>Idade</h3><div class="chart-wrap short"><canvas id="chOvIdade"></canvas></div></div>
         <div class="card"><h3>Ano escolar</h3><div class="chart-wrap short"><canvas id="chOvSerie"></canvas></div></div>
         <div class="card"><h3>Turno</h3><div class="chart-wrap short"><canvas id="chOvTurno"></canvas></div></div>
-        <div class="card"><h3>Repetiu algum ano?</h3><div class="chart-wrap short"><canvas id="chOvRetencao"></canvas></div></div>
-        <div class="card"><h3>Escolaridade da mãe</h3><div class="chart-wrap short"><canvas id="chOvMae"></canvas></div></div>
+        <div class="card"><h3>Repetiu algum ano?</h3><div class="chart-wrap short"><canvas id="chOvRetencao"></canvas></div></div>      
+        <div class="card"><h3>Escolaridade da mãe</h3><div class="chart-wrap short"><canvas id="chOvMae"></canvas></div></div>      
         <div class="card"><h3>Toma café da manhã</h3><div class="chart-wrap short"><canvas id="chOvCafe"></canvas></div></div>
-        <div class="card"><h3>Respostas ao longo do tempo</h3><div class="chart-wrap short"><canvas id="chOvTempo"></canvas></div></div>
+        <div class="card" style="display: none;"><h3>Respostas ao longo do tempo</h3><div class="chart-wrap short"><canvas id="chOvTempo"></canvas></div></div>
       </div>
 
-      <div class="section-title">Top 10 escolas por número de respondentes</div>
-      <div class="card"><div id="topSchoolsList"></div></div>
+      <!-- <div class="section-title">Top 10 escolas por número de respondentes</div>
+      <div class="card"><div id="topSchoolsList"></div></div> -->
+
       <div class="footer-note">Fonte: Diagnóstico de Clima Escolar da Rede Municipal de Joinville (2026). Escala Delaware de Clima Escolar (Bear et al., 2015) e itens PeNSE/PISA/GSHS.</div>
     `;
 
@@ -1428,7 +1429,8 @@ if (typeof module !== "undefined") {
   // ---------------------------------------------------------------------
   // SAÚDE MENTAL & BEM-ESTAR
   // ---------------------------------------------------------------------
-  const PENSE_BRASIL_REF = { ansiedade: 50.9, humor_deprimido: 33.1, autodepreciacao: 34.0, irritabilidade: 43.9, ideacao_suicida: 24.1 };
+  // ORIGINAL: const PENSE_BRASIL_REF = { ansiedade: 50.9, humor_deprimido: 33.1, autodepreciacao: 34.0, irritabilidade: 43.9, ideacao_suicida: 24.1 };
+  const PENSE_BRASIL_REF = { ansiedade: 50.9, humor_deprimido: 28.3, autodepreciacao: 25.4, irritabilidade: 44.0, ideacao_suicida: 17.6 };
   function renderSaude(rows) {
     const el = $("#view-saude");
     const items = CONFIG.MENTAL_HEALTH_ITEMS;
@@ -1450,11 +1452,11 @@ if (typeof module !== "undefined") {
     const satisfMean = satisfVida.length ? Engine.mean(satisfVida) : null; // já é 0-10 (nível=valor)
 
     el.innerHTML = `
-      <div class="section-title">Rastreio de saúde mental <span class="tag">PeNSE, IBGE 2022</span></div>
-      <div class="section-desc">Percentual de estudantes que relataram cada sintoma "na maioria das vezes" ou "sempre" nos últimos 30 dias, comparado à referência nacional (PeNSE 2019, capitais brasileiras).</div>
+      <div class="section-title">Rastreio de saúde mental <span class="tag">PeNSE, IBGE 2024</span></div>
+      <div class="section-desc">Percentual de estudantes que relataram cada sintoma "na maioria das vezes" ou "sempre" nos últimos 30 dias, comparado à referência nacional (PeNSE 2024, região Sul).</div>
       <div class="grid cols-4">
         ${kpiCard("Índice de sofrimento psíquico", fmt1(composite), "composto (0-100, maior = mais sintomas)")}
-        ${kpiCard("Sem nenhum amigo próximo", fmtPct(semAmigos), "referência PeNSE 2019: 3,2%")}
+        ${kpiCard("Sem nenhum amigo próximo", fmtPct(semAmigos), "referência PeNSE 2024: 3,5%")}
         ${kpiCard("Satisfação com a vida (0-10)", fmt1(satisfMean), "escala PISA, quanto maior melhor")}
         ${kpiCard("Amostra válida", rows.length.toLocaleString("pt-BR"), "respondentes na seleção atual")}
       </div>
@@ -1474,7 +1476,7 @@ if (typeof module !== "undefined") {
         labels: items.map(it => it.label),
         datasets: [
           { label: "Joinville (seleção atual)", data: shares, backgroundColor: PALETTE[4], borderRadius: 5 },
-          { label: "PeNSE Brasil 2019 (capitais)", data: items.map(it => PENSE_BRASIL_REF[it.id]), backgroundColor: "#c9d2e0", borderRadius: 5 }
+          { label: "PeNSE Brasil 2024 (Região Sul)", data: items.map(it => PENSE_BRASIL_REF[it.id]), backgroundColor: "#c9d2e0", borderRadius: 5 }
         ]
       },
       options: { ...CHART_DEFAULTS, indexAxis: "y", plugins: { legend: { position: "bottom" } }, scales: { x: { max: 100, ticks: { callback: v => v + "%" } }, y: { ticks: { font: { size: 10.5 } } } } }
@@ -1569,18 +1571,68 @@ if (typeof module !== "undefined") {
 
     makeChart("chAtvMod", { type: "bar", data: { labels: CONFIG.SCALES.days0_7, datasets: [{ data: modDist.pct, backgroundColor: PALETTE[1], borderRadius: 4 }] }, options: { ...CHART_DEFAULTS, plugins: { legend: { display: false } }, scales: { y: { max: 100, ticks: { callback: v => v + "%" } } } } });
     makeChart("chAtvInt", { type: "bar", data: { labels: CONFIG.SCALES.days0_7, datasets: [{ data: intDist.pct, backgroundColor: PALETTE[3], borderRadius: 4 }] }, options: { ...CHART_DEFAULTS, plugins: { legend: { display: false } }, scales: { y: { max: 100, ticks: { callback: v => v + "%" } } } } });
-    makeChart("chTela", { type: "bar", data: { labels: CONFIG.SCALES.screen.map(s => truncate(s, 18)), datasets: [{ data: screenDist.pct, backgroundColor: PALETTE[4], borderRadius: 4 }] }, options: { ...CHART_DEFAULTS, indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { max: 100, ticks: { callback: v => v + "%" } }, y: { ticks: { font: { size: 10 } } } } } });
+    makeChart("chTela", { type: "bar", data: { labels: CONFIG.SCALES.screen.map(s => truncate(s, 29)), datasets: [{ data: screenDist.pct, backgroundColor: PALETTE[4], borderRadius: 4 }] }, options: { ...CHART_DEFAULTS, indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { max: 100, ticks: { callback: v => v + "%" } }, y: { ticks: { font: { size: 10 } } } } } });
     makeChart("chSono", { type: "bar", data: { labels: CONFIG.SCALES.sleep, datasets: [{ data: sleepDist.pct, backgroundColor: PALETTE[5], borderRadius: 4 }] }, options: { ...CHART_DEFAULTS, plugins: { legend: { display: false } }, scales: { y: { max: 100, ticks: { callback: v => v + "%" } } } } });
 
     barCategorical("chCafeHab", rows, "cafe", "bar", true);
 
     const supItems = State.resolved.indices["supervisao_telas"];
     const supShares = supItems.map(c => c.header ? Engine.topBoxShare(rows, c.header, CONFIG.SCALES.simnao, 1) : null);
+    /*
     makeChart("chSupervisao", {
       type: "bar",
-      data: { labels: supItems.map(c => truncate(c.label, 40)), datasets: [{ label: "% responde 'Sim'", data: supShares, backgroundColor: PALETTE[0], borderRadius: 4 }] },
+      data: { labels: supItems.map(c => truncate(c.label, 50)), datasets: [{ label: "% responde 'Sim'", data: supShares, backgroundColor: PALETTE[0], borderRadius: 4 }] },
       options: { ...CHART_DEFAULTS, indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { max: 100, ticks: { callback: v => v + "%" } }, y: { ticks: { font: { size: 10 } } } } }
     });
+    */
+    makeChart("chSupervisao", {
+  type: "bar",
+  data: { 
+    // Substituído o truncate pela função de quebra de linha (limite de ~45 caracteres por linha)
+    labels: supItems.map(c => quebrarTexto(c.label, 45)), 
+    datasets: [{ 
+      label: "% 'Sim'", 
+      data: supShares, 
+      backgroundColor: PALETTE[0], 
+      borderRadius: 4 
+    }] 
+  },
+  options: { 
+    ...CHART_DEFAULTS, 
+    indexAxis: "y", 
+    plugins: { legend: { display: false } }, 
+    layout: {
+      // Garante uma margem na esquerda para os textos longos não colarem na borda
+      padding: { left: 10 }
+    },
+    scales: { 
+      x: { max: 100, ticks: { callback: v => v + "%" } }, 
+      y: { 
+        ticks: { 
+          font: { size: 10 },
+          autoSkip: false // Garante que nenhuma pergunta suma se o gráfico encolher
+        } 
+      } 
+    } 
+  }
+});
+  }
+
+  function quebrarTexto(texto, limite = 40) {
+  const palavras = texto.split(" ");
+  const linhas = [];
+  let linhaAtual = "";
+
+  palavras.forEach(palavra => {
+    if ((linhaAtual + " " + palavra).trim().length > limite) {
+      linhas.push(linhaAtual.trim());
+      linhaAtual = palavra;
+    } else {
+      linhaAtual = (linhaAtual + " " + palavra).trim();
+    }
+     });
+    if (linhaAtual) linhas.push(linhaAtual);
+  return linhas;
   }
 
   // ---------------------------------------------------------------------
@@ -1620,8 +1672,8 @@ if (typeof module !== "undefined") {
         <div class="school-select-row">
           <label style="font-weight:600;font-size:13px;color:var(--muted)">Índice:</label>
           <select id="escolaIdxSelect">${ALL_COMPARABLE_INDICES.map(id => `<option value="${id}">${indexDef(id).label}</option>`).join("")}</select>
-          <label style="font-weight:600;font-size:13px;color:var(--muted);margin-left:10px">Mín. respondentes:</label>
-          <select id="escolaMinN"><option value="1">1</option><option value="5" selected>5</option><option value="10">10</option><option value="20">20</option></select>
+          <label style="font-weight:600;font-size:13px;color:var(--muted);margin-left:10px;display:none">Mín. respondentes:</label>
+          <select id="escolaMinN" style="display:none"><option value="1">1</option><option value="5" selected>5</option><option value="10">10</option><option value="20">20</option></select>
         </div>
         <div id="escolaRankWrap"></div>
       </div>
