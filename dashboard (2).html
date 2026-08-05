@@ -1,0 +1,3158 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard · Diagnóstico de Clima Escolar — Rede Municipal de Joinville</title>
+<style>:root{
+  --bg:#f3f5f9; --card:#ffffff; --ink:#1c2733; --muted:#66758a; --line:#e3e8ef;
+  --brand:#2454ff; --brand-ink:#0e2e91; --brand-soft:#e8edff;
+  --good:#1aa06d; --warn:#e0a715; --bad:#e0483d;
+  --shadow:0 1px 2px rgba(20,30,50,.06), 0 6px 20px rgba(20,30,50,.05);
+  --radius:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"Segoe UI",Inter,system-ui,-apple-system,Roboto,Arial,sans-serif;
+  font-size:14.5px; line-height:1.45;
+}
+h1,h2,h3,h4{margin:0 0 4px; font-weight:700}
+a{color:var(--brand)}
+button{font-family:inherit}
+
+/* ---------- Tela de carregamento ---------- */
+#loadScreen{
+  min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
+}
+.load-card{
+  background:var(--card); border-radius:20px; box-shadow:var(--shadow);
+  max-width:760px; width:100%; padding:38px 40px;
+}
+.load-card h1{font-size:26px}
+.load-card p.lead{color:var(--muted); margin-bottom:22px}
+.badge-row{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:22px}
+.badge{background:var(--brand-soft); color:var(--brand-ink); border-radius:999px; padding:5px 12px; font-size:12.5px; font-weight:600}
+.tabsel{display:flex; gap:6px; margin-bottom:18px; background:#eef1f6; border-radius:10px; padding:4px}
+.tabsel button{flex:1; border:none; background:transparent; padding:9px 10px; border-radius:8px; font-weight:600; color:var(--muted); cursor:pointer}
+.tabsel button.active{background:#fff; color:var(--brand); box-shadow:var(--shadow)}
+.load-pane{display:none}
+.load-pane.active{display:block}
+input[type=text], input[type=url], textarea, select{
+  width:100%; border:1.5px solid var(--line); border-radius:10px; padding:11px 13px;
+  font-size:14.5px; font-family:inherit; color:var(--ink); background:#fff;
+}
+textarea{resize:vertical; min-height:120px}
+.field-label{font-weight:600; font-size:13px; color:var(--muted); margin:0 0 6px}
+.form-row{margin-bottom:16px}
+.btn{
+  border:none; border-radius:10px; padding:12px 20px; font-weight:700; font-size:14.5px;
+  cursor:pointer; background:var(--brand); color:#fff; display:inline-flex; align-items:center; gap:8px;
+}
+.btn:hover{background:var(--brand-ink)}
+.btn.secondary{background:#eef1f6; color:var(--ink)}
+.btn.secondary:hover{background:#e2e6ee}
+.btn:disabled{opacity:.55; cursor:not-allowed}
+.filepick{
+  border:2px dashed var(--line); border-radius:12px; padding:26px; text-align:center; color:var(--muted); cursor:pointer;
+}
+.filepick:hover{border-color:var(--brand)}
+.status-msg{margin-top:14px; font-size:13.5px; padding:10px 13px; border-radius:10px; display:none}
+.status-msg.info{display:block; background:#eef2ff; color:#2b3a86}
+.status-msg.error{display:block; background:#fdecea; color:#8a2318}
+.status-msg.ok{display:block; background:#e8f8f0; color:#106b46}
+.spinner{width:15px;height:15px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite; display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+small.hint{color:var(--muted); display:block; margin-top:6px; font-size:12.3px}
+
+/* ---------- Layout do dashboard ---------- */
+#dashScreen{display:none}
+.topbar{
+  position:sticky; top:0; z-index:20; background:#fff; border-bottom:1px solid var(--line);
+  padding:10px 22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+}
+.topbar .title{font-weight:800; font-size:16px; margin-right:auto; display:flex; align-items:center; gap:10px}
+.topbar .title .n-badge{background:var(--brand-soft); color:var(--brand-ink); font-size:12px; padding:3px 9px; border-radius:999px; font-weight:700}
+.topbar .btn{padding:8px 14px; font-size:13px}
+
+.tabs{
+  display:flex; gap:4px; padding:8px 22px 0; background:#fff; border-bottom:1px solid var(--line);
+  overflow-x:auto;
+}
+.tabs button{
+  border:none; background:transparent; padding:10px 14px; font-weight:600; color:var(--muted);
+  cursor:pointer; border-bottom:3px solid transparent; white-space:nowrap; font-size:13.5px;
+}
+.tabs button.active{color:var(--brand); border-bottom-color:var(--brand)}
+
+.filters{
+  background:#fbfcfe; border-bottom:1px solid var(--line); padding:12px 22px; display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;
+}
+.filters .f-group{min-width:150px}
+.filters label{display:block; font-size:11.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin-bottom:4px}
+.filters select{padding:7px 9px; font-size:13px}
+.filters .btn{padding:8px 12px; font-size:13px}
+
+main{padding:20px 22px 60px; max-width:1400px; margin:0 auto}
+.view{display:none}
+.view.active{display:block}
+
+.grid{display:grid; gap:16px}
+.grid.cols-4{grid-template-columns:repeat(4,1fr)}
+.grid.cols-3{grid-template-columns:repeat(3,1fr)}
+.grid.cols-2{grid-template-columns:repeat(2,1fr)}
+@media (max-width:1100px){.grid.cols-4{grid-template-columns:repeat(2,1fr)} .grid.cols-3{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:680px){.grid.cols-4,.grid.cols-3,.grid.cols-2{grid-template-columns:1fr}}
+
+.card{background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px}
+.card h3{font-size:14.5px}
+.card .sub{color:var(--muted); font-size:12.5px; margin-bottom:10px}
+.section-title{margin:26px 0 12px; font-size:18px; display:flex; align-items:center; gap:10px}
+.section-title .tag{font-size:11px; background:var(--brand-soft); color:var(--brand-ink); padding:3px 9px; border-radius:999px; font-weight:700}
+.section-desc{color:var(--muted); font-size:13px; margin:-6px 0 16px; max-width:920px}
+
+.kpi{display:flex; flex-direction:column; gap:4px}
+.kpi .value{font-size:26px; font-weight:800}
+.kpi .label{color:var(--muted); font-size:12.5px; font-weight:600}
+.kpi .delta{font-size:12px; font-weight:700}
+.kpi .delta.good{color:var(--good)} .kpi .delta.bad{color:var(--bad)}
+
+.chart-wrap{position:relative; height:280px}
+.chart-wrap.tall{height:360px}
+.chart-wrap.short{height:210px}
+
+.pill-row{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px}
+.pill{font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px}
+.pill.good{background:#e8f8f0; color:var(--good)}
+.pill.warn{background:#fff6e0; color:var(--warn)}
+.pill.bad{background:#fdecea; color:var(--bad)}
+
+table.simple{width:100%; border-collapse:collapse; font-size:13px}
+table.simple th, table.simple td{padding:7px 9px; border-bottom:1px solid var(--line); text-align:left}
+table.simple th{color:var(--muted); font-weight:700; font-size:11.5px; text-transform:uppercase; letter-spacing:.02em}
+table.simple tr:hover td{background:#fafbfe}
+
+.heatmap-table{border-collapse:collapse; font-size:12px; width:100%}
+.heatmap-table th{font-size:11px; padding:6px; color:var(--muted); text-align:left; vertical-align:bottom}
+.heatmap-table td{padding:0; text-align:center}
+.heatmap-cell{width:100%; height:38px; display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:11.5px}
+.heatmap-scroll{overflow:auto}
+
+.empty-note{color:var(--muted); font-size:13px; padding:20px; text-align:center}
+.footer-note{color:var(--muted); font-size:12px; text-align:center; margin-top:36px; padding-bottom:10px}
+
+.school-select-row{display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap}
+.school-select-row select{max-width:420px}
+
+.rank-bar{display:flex; align-items:center; gap:8px; margin:5px 0; font-size:12.5px}
+.rank-bar .name{flex:0 0 190px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink)}
+.rank-bar .track{flex:1; background:#eef1f6; border-radius:6px; height:12px; overflow:hidden}
+.rank-bar .fill{height:100%; border-radius:6px}
+.rank-bar .val{flex:0 0 42px; text-align:right; font-weight:700; color:var(--muted)}
+
+.info-icon{cursor:help; color:var(--muted); font-size:12px; border:1px solid var(--line); border-radius:50%; width:16px; height:16px; display:inline-flex; align-items:center; justify-content:center}
+</style>
+</head>
+<body>
+
+<!-- ======================= TELA DE CARREGAMENTO ======================= -->
+<div id="loadScreen">
+  <div class="load-card">
+    <h1>📊 Diagnóstico de Clima Escolar — Joinville</h1>
+    <p class="lead">Carregue as respostas da pesquisa para gerar a dashboard interativa com os índices da Escala Delaware de Clima Escolar e dos aspectos psicossociais (PeNSE, PISA, GSHS).</p>
+    <div class="badge-row">
+      <span class="badge">Clima Escolar (Delaware)</span>
+      <span class="badge">Engajamento &amp; Pertencimento</span>
+      <span class="badge">Saúde Mental (PeNSE)</span>
+      <span class="badge">Hábitos de Vida</span>
+      <span class="badge">Suporte Familiar (PISA)</span>
+      <span class="badge">Comparativo por escola</span>
+      <span class="badge">Correlações</span>
+    </div>
+
+    <div class="tabsel" style="display:none">
+      <button class="active" data-pane="url">Link do Google Sheets</button>
+      <button data-pane="file">Enviar arquivo</button>
+      <button data-pane="paste">Colar dados</button>
+    </div>
+
+    <div id="pane-url" class="load-pane active">
+      <div class="form-row">
+        <p class="field-label">Link da planilha de respostas (Google Sheets)</p>
+        <input type="url" id="inputUrl" placeholder="https://docs.google.com/spreadsheets/d/....../edit?usp=sharing" value="">
+        <small class="hint">A planilha precisa estar compartilhada como "Qualquer pessoa com o link — Leitor". O link pode ser o de edição normal; a dashboard converte automaticamente para exportação em CSV.</small>
+      </div>
+      <button class="btn" id="btnLoadUrl">Carregar dashboard</button>
+    </div>
+
+    <div id="pane-file" class="load-pane">
+      <div class="form-row">
+        <div class="filepick" id="filePickArea">
+          <div>📁 Clique para selecionar ou arraste aqui o arquivo</div>
+          <small class="hint">Aceita .csv ou .xlsx exportado do Google Sheets/Excel (Arquivo → Fazer download).</small>
+          <div id="fileName" style="margin-top:8px;font-weight:700;color:var(--brand)"></div>
+        </div>
+        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,text/csv" style="display:none">
+      </div>
+    </div>
+
+    <div id="pane-paste" class="load-pane">
+      <div class="form-row">
+        <p class="field-label">Cole aqui os dados (CSV, ou copiados diretamente de uma planilha)</p>
+        <textarea id="pasteArea" placeholder="Cole os dados aqui..."></textarea>
+      </div>
+      <button class="btn" id="btnLoadPaste">Carregar dashboard</button>
+    </div>
+
+    <div id="loadStatus" class="status-msg"></div>
+  </div>
+</div>
+
+<!-- ======================= DASHBOARD ======================= -->
+<div id="dashScreen">
+  <div class="topbar">
+    <div class="title">📊 Clima Escolar — Joinville <span class="n-badge" id="respBadge">n = <span id="respCount">0</span></span></div>
+    <button class="btn secondary" id="btnBackToLoad">↺ Carregar outra planilha</button>
+  </div>
+
+  <div class="tabs">
+    <button class="active" data-view="overview">Visão Geral</button>
+    <button data-view="clima">Clima Escolar</button>
+    <button data-view="engajamento">Engajamento &amp; Pertencimento</button>
+    <button data-view="saude">Saúde Mental</button>
+    <button data-view="habitos">Hábitos de Vida</button>
+    <button data-view="familia">Família</button>
+    <button data-view="escolas">Comparativo por Escola</button>
+    <button data-view="correlacoes">Correlações</button>
+    <button data-view="diferenca_medias">Diferença de Médias</button>
+    <button data-view="matriz_riscos">Matriz de Riscos</button>
+  </div>
+
+  <div class="filters" id="filtersWrap"></div>
+
+  <main>
+    <div class="view active" id="view-overview"></div>
+    <div class="view" id="view-clima"></div>
+    <div class="view" id="view-engajamento"></div>
+    <div class="view" id="view-saude"></div>
+    <div class="view" id="view-habitos"></div>
+    <div class="view" id="view-familia"></div>
+    <div class="view" id="view-escolas"></div>
+    <div class="view" id="view-correlacoes"></div>
+    <div class="view" id="view-diferenca_medias"></div>
+    <div class="view" id="view-matriz_riscos"></div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.5.4/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+window.CONFIG = (function(){ /* ==========================================================================
+   Dashboard de Clima Escolar - Rede Municipal de Joinville
+   Configuração de dados: colunas do formulário, escalas e índices/dimensões
+   Baseado em: Delaware School Climate Survey-Student (Bear et al., 2015),
+   PeNSE (IBGE, 2022), PISA (OCDE, 2022), GSHS (WHO, 2025), Holst (2014).
+   ========================================================================== */
+
+// Escalas ordenadas (na ordem em que aparecem no formulário)
+const SCALES = {
+  likert4: ["Discordo muito", "Discordo", "Concordo", "Concordo muito"],
+  freq5_nunca_sempre: ["Nunca", "Raramente", "Às vezes", "Na maioria das vezes", "Sempre"],
+  freq5_family: ["Nunca ou quase nunca", "Cerca de uma ou duas vezes por ano", "Cerca de uma ou duas vezes por mês", "Cerca de uma ou duas vezes por semana", "Todo o dia ou quase todo o dia"],
+  freq3_parents: ["Quase nunca", "Algumas vezes", "Quase sempre"],
+  simnao: ["Não", "Sim"],
+  scale0_10: ["0","1","2","3","4","5","6","7","8","9","10"],
+  days0_7: ["Nenhum dia","1 dia","2 dias","3 dias","4 dias","5 dias","6 dias","7 dias"],
+  sleep: ["Menos que 4 horas","5 horas","6 horas","7 horas","8 horas","9 horas","Mais de 10 horas","10 horas"],
+  screen: ["Até 1 hora por dia","Mais de 1 hora até 2 horas por dia","Mais de 2 horas até 3 horas por dia","Mais de 3 horas até 4 horas por dia","Mais de 4 horas até 5 horas por dia","Mais de 5 horas até 6 horas por dia","Mais de 6 horas até 7 horas por dia","Mais de 7 horas até 8 horas por dia","Mais de 8 horas por dia"],
+  friends: ["Nenhum amigo","1 amigo","2 amigos","3 ou mais amigos"],
+  breakfast: ["Não","Raramente","Sim, 1 a 2 dias por semana","Sim, 3 a 4 dias por semana","Sim, 5 a 6 dias por semana","Sim, todos os dias"],
+  retencao: ["Não, nunca","Sim, uma vez","Sim, duas vezes ou mais"],
+  tempoMatricula: [
+    "Eu vim para esta escola depois do início deste ano letivo",
+    "Eu vim para esta escola no início deste ano letivo",
+    "Um ano letivo, sem incluir o atual",
+    "Dois anos letivos, sem incluir o atual",
+    "Três ou mais anos letivos, sem incluir o atual"
+  ],
+  maeEscolaridade: [
+    "Minha mãe não estudou",
+    "Não terminou o Ensino Fundamental (1º grau)",
+    "Terminou o Ensino Fundamental (1º grau)",
+    "Não terminou o Ensino Médio (2º grau)",
+    "Terminou o Ensino Médio (2º grau)",
+    "Não terminou o Ensino Superior (faculdade)",
+    "Terminou o Ensino Superior (faculdade)",
+    "Não sei"
+  ]
+};
+
+// Colunas demográficas / sociodemográficas (para filtros e perfil da amostra)
+const DEMO_COLUMNS = [
+  { key: "timestamp", header: "Carimbo de data/hora", type: "datetime" },
+  { key: "consent", header: "Você concorda em participar dessa pesquisa?", type: "categorical", options: ["Sim","Não"] },
+  { key: "sexo", header: "Você é do sexo feminino ou masculino?", type: "categorical", options: ["Feminino","Masculino"], filterable: true, label: "Sexo" },
+  { key: "idade", header: "Qual é a sua idade?", type: "categorical", options: ["11 anos ou menos","12 anos","13 anos","14 anos","15 anos","16 anos","17 anos","18 anos","19 anos ou mais"], filterable: true, label: "Idade" },
+  { key: "raca", header: "Qual é a sua cor ou raça?", type: "categorical", options: ["Branca","Preta","Parda","Amarela","Indígena"], filterable: true, label: "Cor/raça" },
+  { key: "nacionalidade", header: "Em que país você nasceu?", type: "categorical", options: ["Brasil","Outro país"], filterable: true, label: "Nacionalidade" },
+  { key: "escola", header: "Em qual escola você estuda?", type: "categorical", filterable: true, label: "Escola" },
+  { key: "serie", header: "Em que ano escolar você está?", type: "categorical", options: ["6º ano do Ensino Fundamental","7º ano do Ensino Fundamental","8º ano do Ensino Fundamental","9º ano do Ensino Fundamental"], filterable: true, label: "Ano escolar" },
+  { key: "turno", header: "Em que turno escolar você está?", type: "categorical", options: ["Matutino","Vespertino","Noturno"], filterable: true, label: "Turno" },
+  { key: "retencao", header: "Você repetiu algum ano?", type: "categorical", options: SCALES.retencao, filterable: true, label: "Repetiu ano" },
+  { key: "tempoMatricula", header: "Há quanto tempo você está matriculado(a) nesta escola?", type: "categorical", options: SCALES.tempoMatricula, filterable: true, label: "Tempo de matrícula" },
+  { key: "maeEscolaridade", header: "Qual nível de ensino (escolaridade) da sua MÃE?", type: "categorical", options: SCALES.maeEscolaridade, filterable: true, label: "Escolaridade da mãe" },
+  { key: "cafe", header: "Você costuma tomar o café da manhã?", type: "categorical", options: SCALES.breakfast }
+];
+
+/* ---------------------------------------------------------------------
+   Definição das dimensões / índices.
+   scale: chave em SCALES (define a ordem das opções -> nível 0..n-1)
+   reverse: itens cuja pontuação deve ser invertida antes da média
+            (para que "concordar" sempre represente mais do atributo nomeado)
+   direction: 'positive' (quanto maior, melhor o clima/bem-estar)
+              'risk' (quanto maior, maior o risco/problema)
+   -------------------------------------------------------------------*/
+const INDICES = [
+  // ================= CLIMA ESCOLAR (Delaware DSCS-S) =================
+  {
+    id: "rel_professor_estudante", group: "clima", direction: "positive",
+    label: "Relações Professor-Estudante",
+    short: "Prof-Estudante",
+    desc: "Cuidado, preocupação e disponibilidade de escuta dos professores/adultos em relação aos alunos.",
+    scale: "likert4",
+    items: [
+      { code: "RPA1", h: "Os professores se preocupam com os seus alunos." },
+      { code: "RPA2", h: "Os professores escutam os alunos quando eles têm problemas." },
+      { code: "RPA3", h: "Os adultos que trabalham nesta escola se importam com os alunos." },
+      { code: "RPA4", h: "Os alunos gostam dos seus professores." },
+      { code: "RPA5", h: "Os professores gostam dos seus alunos." }
+    ]
+  },
+  {
+    id: "rel_estudante_estudante", group: "clima", direction: "positive",
+    label: "Relações Estudante-Estudante",
+    short: "Aluno-Aluno",
+    desc: "Amizade, cooperação e respeito mútuo entre colegas.",
+    scale: "likert4",
+    items: [
+      { code: "REE1", h: "Os alunos são amigáveis uns com os outros." },
+      { code: "REE2", h: "Os alunos se preocupam uns com os outros." },
+      { code: "REE3", h: "Os alunos tratam uns aos outros com respeito." },
+      { code: "REE4", h: "Os alunos se dão bem uns com os outros." }
+    ]
+  },
+  {
+    id: "seguranca_escolar", group: "clima", direction: "positive",
+    label: "Segurança Escolar",
+    short: "Segurança",
+    desc: "Percepção de proteção física e psicológica dentro da escola.",
+    scale: "likert4",
+    items: [
+      { code: "SGE1", h: "Esta escola é segura." },
+      { code: "SGE2", h: "Os alunos sabem que estão seguros nesta escola." },
+      { code: "SGE3", h: "Os alunos estão seguros nos corredores desta escola." },
+      { code: "SGE4", h: "Os alunos se sentem seguros nesta escola." }
+    ]
+  },
+  {
+    id: "justica_clareza_regras", group: "clima", direction: "positive",
+    label: "Justiça e Clareza das Regras",
+    short: "Regras",
+    desc: "Percepção de que as regras/consequências são justas e claramente comunicadas.",
+    scale: "likert4",
+    items: [
+      { code: "JCR1", h: "As regras da escola são justas." },
+      { code: "JCR2", h: "As regras desta escola são claras para os alunos." },
+      { code: "JCR3", h: "As consequências para a quebra de regras da escola são justas." },
+      { code: "JCR4", h: "Esta escola deixa claro como os alunos devem se comportar." },
+      { code: "JCR5", h: "As regras de comportamento para os alunos são justas." },
+      { code: "JCR6", h: "As regras da sala de aula são justas." }
+    ]
+  },
+  {
+    id: "engajamento_escolar_rede", group: "clima", direction: "positive",
+    label: "Engajamento Estudantil (percepção coletiva)",
+    short: "Engaj. Coletivo",
+    desc: "Percepção coletiva sobre esforço, atenção e cumprimento de tarefas da maioria dos alunos.",
+    scale: "likert4",
+    items: [
+      { code: "EEE1", h: "A maioria dos alunos presta atenção nas aulas." },
+      { code: "EEE2", h: "A maioria dos alunos se esforça ao máximo." },
+      { code: "EEE3", h: "A maioria dos alunos entrega as tarefas de casa." },
+      { code: "EEE4", h: "A maioria dos alunos se esforça bastante para tirar boas notas." }
+    ]
+  },
+  {
+    id: "bullying_escolar", group: "clima", direction: "risk",
+    label: "Bullying Escolar",
+    short: "Bullying",
+    desc: "Extensão do sentimento de ameaça e percepção do bullying como problema institucional.",
+    scale: "likert4",
+    items: [
+      { code: "BUL1", h: "Os alunos ameaçam e fazem bullying com outros nesta escola." },
+      { code: "BUL2", h: "Os alunos sentem medo de sofrer bullying nesta escola." },
+      { code: "BUL3", h: "Nesta escola, o bullying é um problema." },
+      { code: "BUL4", h: "Os alunos fazem bullying uns com os outros nesta escola." }
+    ]
+  },
+  {
+    id: "validade_resposta", group: "qualidade", direction: "positive", hidden: true,
+    label: "Item de validade",
+    short: "Validade",
+    scale: "likert4",
+    items: [{ code: "VALID1", h: "Eu estou falando a verdade neste questionário." }]
+  },
+
+  // ================= ENGAJAMENTO INDIVIDUAL (Holst, 2014) =================
+  {
+    id: "engaj_cognitivo_comportamental", group: "engajamento", direction: "positive",
+    label: "Engajamento Cognitivo-Comportamental",
+    short: "Engaj. Cognitivo",
+    desc: "Esforço acadêmico pessoal, atenção nas aulas e conformidade com as normas.",
+    scale: "likert4",
+    items: [
+      { code: "ECC1", h: "Eu presto atenção na aula." },
+      { code: "ECC2", h: "Eu obedeço as regras da escola." },
+      { code: "ECC3", h: "Eu me esforço ao máximo na escola." },
+      { code: "ECC4", h: "Eu entrego minhas tarefas de casa no dia combinado." },
+      { code: "ECC5", h: "Eu tenho boas notas nesta escola." }
+    ]
+  },
+  {
+    id: "engaj_emocional", group: "engajamento", direction: "positive",
+    label: "Engajamento Emocional",
+    short: "Engaj. Emocional",
+    desc: "Sentimentos de felicidade, agrado e identificação do aluno com a escola.",
+    scale: "likert4",
+    items: [
+      { code: "EEM1", h: "Eu me sinto feliz na escola." },
+      { code: "EEM2", h: "Minha escola é um lugar divertido de se estar." },
+      { code: "EEM3", h: "Eu gosto desta escola." },
+      { code: "EEM4", h: "Eu gosto da maioria dos meus professores." },
+      { code: "EEM5", h: "Eu gosto dos alunos que estudam nesta escola." }
+    ]
+  },
+
+  // ================= PERTENCIMENTO (PISA) =================
+  {
+    id: "pertencimento_escolar", group: "engajamento", direction: "positive",
+    label: "Sentimento de Pertencimento Escolar",
+    short: "Pertencimento",
+    desc: "Grau de conexão social, aceitação e acolhimento sentido na escola (PISA).",
+    scale: "likert4",
+    items: [
+      { code: "SPE1", h: "Sinto-me como um estranho (ou deixam-me fora de tudo) na escola.", reverse: true },
+      { code: "SPE2", h: "Faço amigos com facilidade na escola." },
+      { code: "SPE3", h: "Sinto que faço parte do grupo na escola." },
+      { code: "SPE4", h: "Sinto-me como um estranho e que não faço parte do grupo na escola.", reverse: true },
+      { code: "SPE5", h: "Os outros alunos parecem gostar de mim." },
+      { code: "SPE6", h: "Sinto-me só na escola.", reverse: true }
+    ]
+  },
+
+  // ================= APRENDIZAGEM: MENTALIDADE FIXA (quanto maior, pior) =================
+  {
+    id: "mentalidade_crescimento", group: "aprendizagem", direction: "risk",
+    label: "Mentalidade Fixa (Fixed Mindset)",
+    short: "Mentalidade",
+    desc: "Crença de que inteligência/habilidades são inatas e imutáveis. Quanto maior o escore, mais forte a mentalidade fixa (pior). Valores baixos indicam mentalidade de crescimento.",
+    scale: "likert4",
+    items: [
+      { code: "MCT1", h: "Sua inteligência é algo que você não pode mudar muito." },
+      { code: "MCT2", h: "Algumas pessoas simplesmente não são boas em Matemática, não importa o quanto estudem." },
+      { code: "MCT3", h: "Algumas pessoas simplesmente não são boas em Português, não importa o quanto estudem." },
+      { code: "MCT4", h: "Sua criatividade é algo que você não pode mudar muito." }
+    ]
+  },
+
+  // ================= FAMÍLIA =================
+  {
+    id: "suporte_familiar", group: "familia", direction: "positive",
+    label: "Suporte Familiar para Aprendizagem",
+    short: "Suporte Familiar",
+    desc: "Envolvimento ativo da família no cotidiano escolar e incentivo acadêmico (PISA).",
+    scale: "freq5_family",
+    items: [
+      { code: "SFA1", h: "Discutem o seu desempenho escolar." },
+      { code: "SFA2", h: "Almoçam com você." },
+      { code: "SFA3", h: "Passam um tempo apenas conversando com você." },
+      { code: "SFA4", h: "Conversam com você sobre a importância de concluir o Ensino Fundamental." },
+      { code: "SFA5", h: "Conversam com você sobre quaisquer problemas que você possa ter na escola." },
+      { code: "SFA6", h: "Perguntam como é a sua relação com os outros colegas na escola." },
+      { code: "SFA7", h: "Incentivam você a tirar boas notas." },
+      { code: "SFA8", h: "Demonstram interesse pelo que você está aprendendo na escola." },
+      { code: "SFA9", h: "Conversam com você sobre sua futura formação." },
+      { code: "SFA10", h: "Perguntam o que você fez na escola naquele dia." }
+    ]
+  },
+  {
+    id: "conexao_pais", group: "familia", direction: "positive",
+    label: "Conexão Social com os Pais",
+    short: "Conexão c/ Pais",
+    desc: "Qualidade do vínculo emocional e suporte à autonomia concedido pela família (PISA).",
+    scale: "freq3_parents",
+    items: [
+      { code: "CSP1", h: "Eles me ajudam tanto quanto preciso." },
+      { code: "CSP2", h: "Eles me deixam fazer as coisas que eu gosto." },
+      { code: "CSP3", h: "Eles mostram que se importam comigo." },
+      { code: "CSP4", h: "Eles tentam entender meus problemas e preocupações." },
+      { code: "CSP5", h: "Eles me incentivam a tomar minhas próprias decisões." },
+      { code: "CSP6", h: "Eles tentam controlar tudo o que eu faço.", reverse: true },
+      { code: "CSP7", h: "Eles me tratam como um bebê.", reverse: true },
+      { code: "CSP8", h: "Eles me fazem sentir melhor quando estou triste." }
+    ]
+  },
+
+  // ================= SUPERVISÃO PARENTAL DE TELAS =================
+  {
+    id: "supervisao_telas", group: "habitos", direction: "positive",
+    label: "Supervisão Parental no Uso de Telas",
+    short: "Supervisão Telas",
+    desc: "Existência de regras familiares restritivas sobre uso de telas (SBP, 2022).",
+    scale: "simnao",
+    items: [
+      { code: "SPT1", h: "Em sua casa existe uma regra sobre o limite de tempo por dia que você pode ficar no computador, videogame, celular ou tablet?" },
+      { code: "SPT2", h: "Em sua casa existe uma regra sobre os dias da semana que você pode ficar no computador, videogame, celular ou tablet?" },
+      { code: "SPT3", h: "Em sua casa existe uma regra sobre não usar telas durante as refeições em família?" },
+      { code: "SPT4", h: "Em sua casa existe uma regra sobre não usar telas antes de dormir?" }
+    ]
+  }
+];
+
+// ================= SAÚDE MENTAL (PeNSE) - itens individuais (indicadores de risco) =================
+const MENTAL_HEALTH_ITEMS = [
+  { id: "ansiedade", code: "SMT1", label: "Preocupação excessiva (ansiedade)", header: "NOS ÚLTIMOS 30 DIAS, com que frequência você se sentiu muito preocupado com as coisas comuns do seu dia a dia como atividades da escola, competições esportivas, tarefas de casa, etc.?" },
+  { id: "humor_deprimido", code: "SMT2", label: "Tristeza (humor deprimido)", header: "NOS ÚLTIMOS 30 DIAS, com que frequência você se sentiu triste?" },
+  { id: "autodepreciacao", code: "SMT3", label: "Sensação de descaso (ninguém se preocupa)", header: "NOS ÚLTIMOS 30 DIAS, com que frequência você sentiu que ninguém se preocupa com você?" },
+  { id: "irritabilidade", code: "SMT4", label: "Irritabilidade", header: "NOS ÚLTIMOS 30 DIAS, com que frequência você se sentiu irritado(a), nervoso(a) ou mal-humorado(a) por qualquer coisa?" },
+  { id: "ideacao_suicida", code: "SMT5", label: "Ideação suicida (vida não vale a pena)", header: "NOS ÚLTIMOS 30 DIAS, com que frequência você sentiu que a vida não vale a pena ser vivida?" }
+];
+const MENTAL_HEALTH_SCALE = "freq5_nunca_sempre";
+
+// Itens/colunas avulsas de hábitos e bem-estar (não compõem índice composto, mas geram gráficos próprios)
+const STANDALONE_ITEMS = {
+  amigos: { code: "AMG1", header: "Quantos(as) amigos(as) próximos você tem?", scale: "friends" },
+  satisfacaoVida: { code: "SGV1", header: "De modo geral, quão satisfeito(a) você está com sua vida atualmente?", scale: "scale0_10" },
+  atvModerada: { code: "ATF1", header: "Atividades físicas moderadas com uma duração total de pelo menos 60 minutos por dia (ex.: caminhar, subir escadas, ir à escola de bicicleta, jogar vôlei, dançar balé, etc.).", scale: "days0_7" },
+  atvIntensa: { code: "ATF2", header: "Atividades físicas intensas com uma duração total de pelo menos 20 minutos por dia que te fizeram suar e ofegar bastante (ex.: correr, andar de bicicleta, fazer aeróbica, jogar futebol, andar de skate, nadar, etc.).", scale: "days0_7" },
+  tempoTela: { code: "TTS1", header: "Quantas horas por dia você costuma ficar sentado ou deitado, assistindo televisão, jogando videogame, usando computador, celular, tablet ou fazendo outras atividades? (NÃO contar sábado, domingo, feriados ou o tempo sentado na escola).", scale: "screen" },
+  sono: { code: "HBS1", header: "Em uma noite de sono, quando tem aula no dia seguinte, quantas horas de sono você tem?", scale: "sleep" }
+};
+
+if (typeof module !== "undefined") {
+  module.exports = { SCALES, DEMO_COLUMNS, INDICES, MENTAL_HEALTH_ITEMS, MENTAL_HEALTH_SCALE, STANDALONE_ITEMS };
+}
+ return { SCALES, DEMO_COLUMNS, INDICES, MENTAL_HEALTH_ITEMS, MENTAL_HEALTH_SCALE, STANDALONE_ITEMS }; })();
+</script>
+<script>/* ==========================================================================
+   Motor de processamento de dados - Dashboard Clima Escolar Joinville
+   Funções puras: casamento de cabeçalhos, pontuação de itens, agregação,
+   filtros e correlações. Compatível com navegador (window) e Node (testes).
+   ========================================================================== */
+(function (root) {
+  const CFG = (typeof module !== "undefined" && module.exports)
+    ? require("./config.js")
+    : root.CONFIG;
+  const { SCALES, DEMO_COLUMNS, INDICES, MENTAL_HEALTH_ITEMS, MENTAL_HEALTH_SCALE, STANDALONE_ITEMS } = CFG;
+
+  // ---------- Normalização de texto para casamento robusto de cabeçalhos/opções ----------
+  function norm(s) {
+    if (s === undefined || s === null) return "";
+    return String(s)
+      .replace(/\r/g, "")
+      .replace(/\u00A0/g, " ")
+      .replace(/[""]/g, '"')
+      .replace(/['']/g, "'")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+  }
+
+  // Constrói um mapa normalizado(header) -> header real presente no CSV
+  function buildHeaderIndex(actualHeaders) {
+    const map = {};
+    actualHeaders.forEach(h => { map[norm(h)] = h; });
+    return map;
+  }
+
+  // Encontra o cabeçalho real correspondente a um cabeçalho "esperado" (config)
+  // Suporta múltiplos formatos: com código ("RPA1 - texto"), sem código ("texto"), e colunas "(valor)"
+  function resolveHeader(expected, headerIndex, code) {
+    // 1) Com código: "RPA1 - texto"
+    if (code) {
+      const withCode = norm(code + " - " + expected);
+      if (headerIndex[withCode]) return headerIndex[withCode];
+    }
+    // 2) Sem código: texto puro (compatibilidade com planilhas antigas)
+    const n = norm(expected);
+    if (headerIndex[n]) return headerIndex[n];
+    // 3) fallback: tenta casar por prefixo (tolerante a truncamentos/pontuação)
+    const keys = Object.keys(headerIndex);
+    const found = keys.find(k => k.startsWith(n.slice(0, Math.min(30, n.length))) || n.startsWith(k.slice(0, Math.min(30, k.length))));
+    return found ? headerIndex[found] : null;
+  }
+
+  // Encontra a coluna "(valor)" correspondente a um cabeçalho de texto
+  // Busca por padrões: "RPA1 - texto (valor)" ou "texto (valor)"
+  function resolveValorHeader(expected, headerIndex, code) {
+    const keys = Object.keys(headerIndex);
+    // 1) Com código: "RPA1 - texto (valor)"
+    if (code) {
+      const withCodeValor = norm(code + " - " + expected + " (valor)");
+      if (headerIndex[withCodeValor]) return headerIndex[withCodeValor];
+    }
+    // 2) Sem código: "texto (valor)"
+    const nValor = norm(expected + " (valor)");
+    if (headerIndex[nValor]) return headerIndex[nValor];
+    // 3) Busca por qualquer cabeçalho que contenha o código + "(valor)"
+    if (code) {
+      const codeLower = code.toLowerCase();
+      const found = keys.find(k => k.includes(codeLower) && k.includes("(valor)"));
+      if (found) return headerIndex[found];
+    }
+    // 4) Busca por cabeçalho que case com o texto esperado + "(valor)"
+    const n = norm(expected);
+    const found = keys.find(k => k.includes(n.slice(0, Math.min(25, n.length))) && k.includes("(valor)"));
+    return found ? headerIndex[found] : null;
+  }
+
+  // Nível (posição 0-based) de uma resposta bruta dentro das opções de uma escala
+  function levelOf(rawValue, options) {
+    const v = norm(rawValue);
+    if (!v) return -1;
+    for (let i = 0; i < options.length; i++) {
+      if (norm(options[i]) === v) return i;
+    }
+    // tolerância: contém
+    for (let i = 0; i < options.length; i++) {
+      if (v.indexOf(norm(options[i])) !== -1 || norm(options[i]).indexOf(v) !== -1) return i;
+    }
+    return -1;
+  }
+
+  // Pontua um item: retorna 0-100 (nível normalizado), considerando inversão
+  function scoreItem(rawValue, options, reverse) {
+    const lvl = levelOf(rawValue, options);
+    if (lvl === -1) return null;
+    const n = options.length;
+    const effLvl = reverse ? (n - 1 - lvl) : lvl;
+    if (n <= 1) return null;
+    return (effLvl / (n - 1)) * 100;
+  }
+
+  // Retorna { header, reverse, code } normalizados a partir da definição de item (string ou {h,reverse,code})
+  function itemDef(item) {
+    if (typeof item === "string") return { h: item, reverse: false, code: null };
+    return { h: item.h, reverse: !!item.reverse, code: item.code || null };
+  }
+
+  // ---------- Preparação do dataset ----------
+  // rows: array de objetos {header: valor} vindos do parser CSV (chaves = cabeçalhos originais do arquivo)
+  // Suporta dois formatos de planilha:
+  //   - Formato antigo: apenas colunas de texto ("Os professores se preocupam...")
+  //   - Formato novo: colunas com código ("RPA1 - Os professores...") + colunas "(valor)" com valores numéricos pré-computados
+  function prepareDataset(rows, actualHeaders) {
+    const headerIndex = buildHeaderIndex(actualHeaders);
+
+    // Detecta se existem colunas "(valor)" na planilha
+    const hasValorColumns = actualHeaders.some(h => /\(valor\)/i.test(h));
+
+    // Resolve todos os cabeçalhos necessários uma única vez
+    const resolved = { demo: {}, indices: {}, mental: {}, standalone: {} };
+
+    DEMO_COLUMNS.forEach(c => { resolved.demo[c.key] = resolveHeader(c.header, headerIndex); });
+    INDICES.forEach(idx => {
+      resolved.indices[idx.id] = idx.items.map(it => {
+        const d = itemDef(it);
+        const textHeader = resolveHeader(d.h, headerIndex, d.code);
+        const valorHeader = hasValorColumns ? resolveValorHeader(d.h, headerIndex, d.code) : null;
+        return { header: textHeader, valorHeader, reverse: d.reverse, label: d.h, code: d.code };
+      });
+    });
+    MENTAL_HEALTH_ITEMS.forEach(m => {
+      const textHeader = resolveHeader(m.header, headerIndex, m.code);
+      const valorHeader = hasValorColumns ? resolveValorHeader(m.header, headerIndex, m.code) : null;
+      resolved.mental[m.id] = { header: textHeader, valorHeader, code: m.code };
+    });
+    Object.keys(STANDALONE_ITEMS).forEach(k => {
+      const si = STANDALONE_ITEMS[k];
+      const textHeader = resolveHeader(si.header, headerIndex, si.code);
+      const valorHeader = hasValorColumns ? resolveValorHeader(si.header, headerIndex, si.code) : null;
+      resolved.standalone[k] = { header: textHeader, valorHeader, code: si.code, scale: si.scale };
+    });
+
+    // Filtra somente quem consentiu (quando a coluna existir)
+    const consentHeader = resolved.demo.consent;
+    let usableRows = rows;
+    let excludedNoConsent = 0;
+    if (consentHeader) {
+      usableRows = rows.filter(r => {
+        const v = norm(r[consentHeader]);
+        const ok = v === "" || v === "sim"; // linhas sem resposta (planilhas antigas) são mantidas
+        if (!ok) excludedNoConsent++;
+        return ok;
+      });
+    }
+
+    // Converte um valor numérico da coluna "(valor)" para escala 0-100
+    // Os valores (valor) já têm as inversões aplicadas, então NÃO aplicamos reverse scoring
+    // A maioria das escalas usa valores 1-based (1=primeira opção, n=última)
+    // Exceção: scale0_10 onde os valores são os próprios números (0-10)
+    function scoreFromValor(rawValue, scaleOptions) {
+      if (rawValue === null || rawValue === undefined || rawValue === "") return null;
+      const num = Number(rawValue);
+      if (isNaN(num)) return null;
+      const n = scaleOptions.length;
+      if (n <= 1) return null;
+      // Detecta se a escala é 0-based (ex: scale0_10 onde opções são "0","1",...,"10")
+      const firstOpt = Number(scaleOptions[0]);
+      const isZeroBased = !isNaN(firstOpt) && firstOpt === 0;
+      if (isZeroBased) {
+        // Valor já é o nível (0-based), normaliza para 0-100
+        const maxVal = n - 1; // ex: 10 para scale0_10
+        if (num >= 0 && num <= maxVal) {
+          return maxVal > 0 ? (num / maxVal) * 100 : null;
+        }
+        return null;
+      }
+      // Escala 1-based: valor 1 = primeira opção, valor n = última opção
+      // Converte para 0-based level: level = valor - 1
+      if (num >= 1 && num <= n) {
+        return ((num - 1) / (n - 1)) * 100;
+      }
+      // Fallback: se o valor parece ser 0-based (range 0 a n-1)
+      if (num >= 0 && num <= n - 1) {
+        return ((num) / (n - 1)) * 100;
+      }
+      return null;
+    }
+
+    // Pré-computa, por linha, os escores de cada índice e itens avulsos
+    const processedRows = usableRows.map(r => {
+      const out = { _raw: r, demo: {}, indices: {}, mental: {}, standalone: {} };
+      DEMO_COLUMNS.forEach(c => {
+        out.demo[c.key] = resolved.demo[c.key] ? r[resolved.demo[c.key]] : null;
+      });
+      INDICES.forEach(idx => {
+        const cols = resolved.indices[idx.id];
+        const scaleOptions = SCALES[idx.scale];
+        const itemScores = cols.map(c => {
+          // Prioriza coluna (valor) se disponível — inversões já estão aplicadas
+          if (c.valorHeader && r[c.valorHeader] !== undefined && r[c.valorHeader] !== "") {
+            const v = scoreFromValor(r[c.valorHeader], scaleOptions);
+            return v;
+          }
+          // Fallback: usa coluna de texto com mapeamento de escala
+          return c.header ? scoreItem(r[c.header], scaleOptions, c.reverse) : null;
+        });
+        const valid = itemScores.filter(s => s !== null);
+        out.indices[idx.id] = {
+          score: valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : null,
+          itemScores
+        };
+      });
+      MENTAL_HEALTH_ITEMS.forEach(m => {
+        const res = resolved.mental[m.id];
+        // Prioriza coluna (valor) se disponível
+        if (res.valorHeader && r[res.valorHeader] !== undefined && r[res.valorHeader] !== "") {
+          const num = Number(r[res.valorHeader]);
+          const opts = SCALES[MENTAL_HEALTH_SCALE];
+          // freq5 é 1-based (1=Nunca, 5=Sempre)
+          if (!isNaN(num) && num >= 1 && num <= opts.length) {
+            out.mental[m.id] = num - 1; // nível 0-based
+          } else if (!isNaN(num) && num >= 0 && num < opts.length) {
+            out.mental[m.id] = num; // já 0-based
+          } else {
+            out.mental[m.id] = -1;
+          }
+        } else {
+          const lvl = res.header ? levelOf(r[res.header], SCALES[MENTAL_HEALTH_SCALE]) : -1;
+          out.mental[m.id] = lvl;
+        }
+      });
+      Object.keys(STANDALONE_ITEMS).forEach(k => {
+        const res = resolved.standalone[k];
+        const opt = SCALES[res.scale];
+        // Detecta se a escala é 0-based (ex: scale0_10)
+        const firstOpt = Number(opt[0]);
+        const isZeroBased = !isNaN(firstOpt) && firstOpt === 0;
+        // Prioriza coluna (valor) se disponível
+        if (res.valorHeader && r[res.valorHeader] !== undefined && r[res.valorHeader] !== "") {
+          const num = Number(r[res.valorHeader]);
+          if (isZeroBased) {
+            // scale0_10: valor já é o nível
+            if (!isNaN(num) && num >= 0 && num <= (opt.length - 1)) {
+              out.standalone[k] = num;
+            } else {
+              out.standalone[k] = -1;
+            }
+          } else if (!isNaN(num) && num >= 1 && num <= opt.length) {
+            out.standalone[k] = num - 1; // nível 0-based
+          } else if (!isNaN(num) && num >= 0 && num < opt.length) {
+            out.standalone[k] = num; // já 0-based
+          } else {
+            out.standalone[k] = -1;
+          }
+        } else {
+          const lvl = res.header ? levelOf(r[res.header], opt) : -1;
+          out.standalone[k] = lvl;
+        }
+      });
+      return out;
+    });
+
+    return { processedRows, resolved, excludedNoConsent, totalRaw: rows.length, hasValorColumns };
+  }
+
+  // ---------- Filtros ----------
+  function applyFilters(processedRows, filters) {
+    const keys = Object.keys(filters || {}).filter(k => filters[k] && filters[k].length);
+    if (!keys.length) return processedRows;
+    return processedRows.filter(row => keys.every(k => {
+      const val = row.demo[k];
+      return filters[k].includes(val);
+    }));
+  }
+
+  // ---------- Estatística básica ----------
+  function mean(arr) { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null; }
+  function stddev(arr) {
+    if (arr.length < 2) return null;
+    const m = mean(arr);
+    const v = arr.reduce((a, b) => a + Math.pow(b - m, 2), 0) / (arr.length - 1);
+    return Math.sqrt(v);
+  }
+  function median(arr) {
+    if (!arr.length) return null;
+    const s = [...arr].sort((a, b) => a - b);
+    const mid = Math.floor(s.length / 2);
+    return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+  }
+  // Quantil (0..1) por interpolação linear (estilo R type=7)
+  function quantile(arr, q) {
+    if (!arr.length) return null;
+    const s = [...arr].sort((a, b) => a - b);
+    if (s.length === 1) return s[0];
+    const pos = (s.length - 1) * q;
+    const base = Math.floor(pos);
+    const rest = pos - base;
+    if (s[base + 1] !== undefined) return s[base] + rest * (s[base + 1] - s[base]);
+    return s[base];
+  }
+  function iqr(arr) {
+    if (arr.length < 2) return null;
+    return quantile(arr, 0.75) - quantile(arr, 0.25);
+  }
+  function pearson(x, y) {
+    const n = Math.min(x.length, y.length);
+    if (n < 3) return null;
+    const mx = mean(x), my = mean(y);
+    let num = 0, dx2 = 0, dy2 = 0;
+    for (let i = 0; i < n; i++) {
+      const dx = x[i] - mx, dy = y[i] - my;
+      num += dx * dy; dx2 += dx * dx; dy2 += dy * dy;
+    }
+    const den = Math.sqrt(dx2 * dy2);
+    return den === 0 ? null : num / den;
+  }
+
+  // ---------- Estatística não paramétrica ----------
+  // Ranqueamento com média para empates (tie-corrected ranks, 1-based)
+  function rankData(arr) {
+    const n = arr.length;
+    if (!n) return [];
+    const idx = arr.map((v, i) => ({ v, i }));
+    idx.sort((a, b) => a.v - b.v);
+    const ranks = new Array(n);
+    let i = 0;
+    while (i < n) {
+      let j = i;
+      while (j < n - 1 && idx[j + 1].v === idx[i].v) j++;
+      // média das posições (1-based) de i..j
+      const avg = (i + 1 + j + 1) / 2;
+      for (let k = i; k <= j; k++) ranks[idx[k].i] = avg;
+      i = j + 1;
+    }
+    return ranks;
+  }
+
+  // Correlação de Spearman (Pearson sobre ranques com correção de empates)
+  function spearman(x, y) {
+    const pairs = [];
+    for (let i = 0; i < Math.min(x.length, y.length); i++) {
+      const a = x[i], b = y[i];
+      if (a !== null && a !== undefined && b !== null && b !== undefined && !isNaN(a) && !isNaN(b)) {
+        pairs.push([a, b]);
+      }
+    }
+    if (pairs.length < 3) return null;
+    const rx = rankData(pairs.map(p => p[0]));
+    const ry = rankData(pairs.map(p => p[1]));
+    return pearson(rx, ry);
+  }
+
+  // Função erroro (Abramowitz & Stegun 7.1.26)
+  function erf(x) {
+    const sign = x >= 0 ? 1 : -1;
+    const ax = Math.abs(x);
+    const t = 1 / (1 + 0.3275911 * ax);
+    const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-ax * ax);
+    return sign * y;
+  }
+  // CDF da normal padrão
+  function normalCDF(z) { return 0.5 * (1 + erf(z / Math.sqrt(2))); }
+
+  // Log Gama (Lanczos)
+  function gammaln(x) {
+    const c = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+    let y = x, tmp = x + 5.5;
+    tmp -= (x + 0.5) * Math.log(tmp);
+    let ser = 1.000000000190015;
+    for (let j = 0; j < 6; j++) { y += 1; ser += c[j] / y; }
+    return -tmp + Math.log(2.5066282746310005 * ser / x);
+  }
+  // Gama incompleta regularizada P(a, x) (Numerical Recipes)
+  function gammp(a, x) {
+    if (x <= 0 || a <= 0) return 0;
+    const gln = gammaln(a);
+    if (x < a + 1) {
+      let ap = a, sum = 1 / a, del = sum;
+      for (let n = 0; n < 200; n++) { ap += 1; del *= x / ap; sum += del; if (Math.abs(del) < Math.abs(sum) * 1e-12) break; }
+      return sum * Math.exp(-x + a * Math.log(x) - gln);
+    } else {
+      let b = x + 1 - a, c = 1 / 1e-30, d = 1 / b, h = d;
+      for (let i = 1; i <= 200; i++) {
+        const an = -i * (i - a);
+        b += 2;
+        d = an * d + b; if (Math.abs(d) < 1e-30) d = 1e-30;
+        c = b + an / c; if (Math.abs(c) < 1e-30) c = 1e-30;
+        d = 1 / d;
+        const del = d * c; h *= del;
+        if (Math.abs(del - 1) < 1e-12) break;
+      }
+      return 1 - Math.exp(-x + a * Math.log(x) - gln) * h;
+    }
+  }
+  // CDF da qui-quadrado com k graus de liberdade
+  function chiSquareCDF(x, k) { if (x <= 0) return 0; return gammp(k / 2, x / 2); }
+
+  // Teste U de Mann-Whitney (2 grupos independentes)
+  // Retorna: U, z (com correção de continuidade), p (bicaudal), r = |z|/sqrt(N), n1, n2
+  function mannWhitneyU(g1, g2) {
+    const n1 = g1.length, n2 = g2.length;
+    if (n1 < 1 || n2 < 1) return null;
+    const all = [...g1, ...g2];
+    const N = all.length;
+    const ranks = rankData(all);
+    const R1 = ranks.slice(0, n1).reduce((a, b) => a + b, 0);
+    const R2 = ranks.slice(n1).reduce((a, b) => a + b, 0);
+    const U1 = R1 - n1 * (n1 + 1) / 2;
+    const U2 = R2 - n2 * (n2 + 1) / 2;
+    const U = Math.min(U1, U2);
+    const Umax = Math.max(U1, U2);
+    const mu = n1 * n2 / 2;
+    // Correção de empates
+    const tieGroups = {};
+    all.forEach(v => { const k = String(v); tieGroups[k] = (tieGroups[k] || 0) + 1; });
+    let tieSum = 0;
+    Object.values(tieGroups).forEach(t => { tieSum += (t * t * t - t); });
+    const sigma = Math.sqrt((n1 * n2 / 12) * ((N + 1) - tieSum / (N * (N - 1))));
+    if (sigma === 0) return null;
+    // z com correção de continuidade usando Umax
+    const z = (Umax - mu - 0.5) / sigma;
+    const p = 2 * (1 - normalCDF(Math.abs(z)));
+    const r = Math.abs(z) / Math.sqrt(N);
+    return { U, U1, U2, z, p, r, n1, n2, N };
+  }
+
+  // Teste H de Kruskal-Wallis (k grupos independentes)
+  // Retorna: H (com correção de empates), p (qui-quadrado k-1 gl), df, k, N, epsilon2
+  function kruskalWallis(groups) {
+    const k = groups.length;
+    if (k < 2) return null;
+    const all = groups.flat();
+    const N = all.length;
+    if (N === 0) return null;
+    const ranks = rankData(all);
+    let idx = 0;
+    const Ri = groups.map(g => {
+      const r = ranks.slice(idx, idx + g.length).reduce((a, b) => a + b, 0);
+      idx += g.length;
+      return r;
+    });
+    // Correção de empates
+    const tieGroups = {};
+    all.forEach(v => { const k2 = String(v); tieGroups[k2] = (tieGroups[k2] || 0) + 1; });
+    let tieSum = 0;
+    Object.values(tieGroups).forEach(t => { tieSum += (t * t * t - t); });
+    const C = 1 - tieSum / (N * N * N - N);
+    if (C === 0) return null;
+    let H = (12 / (N * (N + 1))) * Ri.reduce((acc, r, i) => acc + (r * r) / groups[i].length, 0) - 3 * (N + 1);
+    H = H / C;
+    const df = k - 1;
+    const p = 1 - chiSquareCDF(H, df);
+    // Tamanho de efeito ε² = (H - k + 1) / (N - k)  (Tomczak & Tomczak, 2014)
+    const epsilon2 = (H - k + 1) / (N - k);
+    return { H, p, df, k, N, epsilon2 };
+  }
+
+  // ---------- Agregação de índices ----------
+  function aggregateIndex(processedRows, indexId) {
+    const scores = processedRows.map(r => r.indices[indexId] && r.indices[indexId].score).filter(v => v !== null && v !== undefined);
+    return { n: scores.length, mean: mean(scores), sd: stddev(scores), median: median(scores), scores };
+  }
+
+  // % de respostas em categorias "altas" para um item bruto (últimas 1 ou 2 categorias conforme tamanho da escala)
+  function topBoxShare(processedRows, header, options, topN) {
+    let total = 0, top = 0;
+    processedRows.forEach(r => {
+      const lvl = levelOf(r._raw[header], options);
+      if (lvl === -1) return;
+      total++;
+      if (lvl >= options.length - topN) top++;
+    });
+    return total ? (top / total) * 100 : null;
+  }
+
+  function distribution(processedRows, header, options) {
+    const counts = options.map(() => 0);
+    let total = 0;
+    processedRows.forEach(r => {
+      const lvl = levelOf(r._raw[header], options);
+      if (lvl === -1) return;
+      counts[lvl]++; total++;
+    });
+    return { counts, total, pct: counts.map(c => total ? (c / total) * 100 : 0) };
+  }
+
+  const Engine = {
+    norm, buildHeaderIndex, resolveHeader, resolveValorHeader, levelOf, scoreItem, itemDef,
+    prepareDataset, applyFilters, mean, stddev, median, quantile, iqr, pearson, spearman,
+    rankData, erf, normalCDF, gammaln, gammp, chiSquareCDF, mannWhitneyU, kruskalWallis,
+    aggregateIndex, topBoxShare, distribution
+  };
+
+  if (typeof module !== "undefined" && module.exports) module.exports = Engine;
+  else root.Engine = Engine;
+})(typeof window !== "undefined" ? window : globalThis);
+</script>
+<script>/* ==========================================================================
+   Aplicação (UI) - Dashboard de Clima Escolar da Rede Municipal de Joinville
+   ========================================================================== */
+(function () {
+  "use strict";
+
+  // ---------------------------------------------------------------------
+  // Estado global
+  // ---------------------------------------------------------------------
+  const State = {
+    headers: null,
+    rowsRaw: null,
+    processedRows: null,
+    resolved: null,
+    excludedNoConsent: 0,
+    totalRaw: 0,
+    filters: {},           // { demoKey: [valores selecionados] }
+    filtered: null,        // linhas processadas após filtro
+    activeView: "overview",
+    charts: {}             // registry de instâncias Chart.js por canvas id, p/ destruir ao re-renderizar
+  };
+
+  const $ = (sel, ctx) => (ctx || document).querySelector(sel);
+  const $$ = (sel, ctx) => Array.from((ctx || document).querySelectorAll(sel));
+
+  // ---------------------------------------------------------------------
+  // Paleta / helpers visuais
+  // ---------------------------------------------------------------------
+  const PALETTE = ["#2454ff", "#1aa06d", "#e0a715", "#8b5cf6", "#e0483d", "#0891b2", "#c026d3", "#65a30d"];
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function colorForValue(v, direction) {
+    // v em 0-100. direction 'positive': vermelho->amarelo->verde. 'risk': verde->amarelo->vermelho.
+    if (v === null || v === undefined || isNaN(v)) return "#c9d2e0";
+    const t = Math.max(0, Math.min(100, v)) / 100;
+    const stops = direction === "risk"
+      ? [[26,160,109],[224,167,21],[224,72,61]]
+      : [[224,72,61],[224,167,21],[26,160,109]];
+    let seg, localT;
+    if (t < 0.5) { seg = 0; localT = t / 0.5; } else { seg = 1; localT = (t - 0.5) / 0.5; }
+    const c0 = stops[seg], c1 = stops[seg + 1];
+    const r = Math.round(lerp(c0[0], c1[0], localT));
+    const g = Math.round(lerp(c0[1], c1[1], localT));
+    const b = Math.round(lerp(c0[2], c1[2], localT));
+    return `rgb(${r},${g},${b})`;
+  }
+  function levelLabel(v, direction) {
+    if (v === null || v === undefined) return "Sem dados";
+    const good = direction === "risk" ? v < 33 : v >= 67;
+    const bad = direction === "risk" ? v >= 67 : v < 33;
+    if (good) return direction === "risk" ? "Baixo risco" : "Alto";
+    if (bad) return direction === "risk" ? "Alto risco" : "Baixo";
+    return direction === "risk" ? "Risco moderado" : "Médio";
+  }
+  function fmt1(v) { return (v === null || v === undefined || isNaN(v)) ? "—" : v.toFixed(1); }
+  // Por padrão, valores percentuais com 2 casas decimais e vírgula (pt-BR)
+  function fmtPct(v) { return (v === null || v === undefined || isNaN(v)) ? "—" : v.toFixed(2).replace('.', ',') + "%"; }
+  // Formata número decimal com 2 casas e vírgula (pt-BR) — útil para sínteses textuais
+  function fmtNum2(v) { return (v === null || v === undefined || isNaN(v)) ? "—" : v.toFixed(2).replace('.', ','); }
+  // Formata percentual já recebendo valor numérico (sem acrescentar '%', para usar dentro de textos)
+  function pctBR(v) { return (v === null || v === undefined || isNaN(v)) ? "—" : v.toFixed(2).replace('.', ','); }
+
+  function destroyChart(id) {
+    if (State.charts[id]) { State.charts[id].destroy(); delete State.charts[id]; }
+  }
+  function makeChart(id, config) {
+    destroyChart(id);
+    const canvas = document.getElementById(id);
+    if (!canvas) return null;
+    const ctx = canvas.getContext("2d");
+    const chart = new Chart(ctx, config);
+    State.charts[id] = chart;
+    return chart;
+  }
+
+  const CHART_DEFAULTS = {
+    plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } },
+    maintainAspectRatio: false,
+    responsive: true
+  };
+
+  // ---------------------------------------------------------------------
+  // Carregamento de dados
+  // ---------------------------------------------------------------------
+  const loadTabs = $$("#loadScreen .tabsel button");
+  loadTabs.forEach(btn => btn.addEventListener("click", () => {
+    loadTabs.forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    $$("#loadScreen .load-pane").forEach(p => p.classList.remove("active"));
+    $("#pane-" + btn.dataset.pane).classList.add("active");
+  }));
+
+  function setStatus(msg, kind) {
+    const el = $("#loadStatus");
+    el.className = "status-msg " + (kind || "info");
+    el.innerHTML = msg;
+  }
+
+  function parseGoogleSheetsId(raw) {
+    const url = raw.trim();
+    const idMatch = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    if (!idMatch) return null;
+    const id = idMatch[1];
+    let gid = "0";
+    const gidMatch = url.match(/[?#&]gid=([0-9]+)/);
+    if (gidMatch) gid = gidMatch[1];
+    return { id, gid };
+  }
+
+  function parseGoogleSheetsUrl(raw) {
+    const parsed = parseGoogleSheetsId(raw);
+    if (!parsed) return null;
+    return `https://docs.google.com/spreadsheets/d/${parsed.id}/export?format=csv&gid=${parsed.gid}`;
+  }
+
+  async function fetchText(url) {
+    const res = await fetch(url, { credentials: "omit" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return await res.text();
+  }
+
+  // Fallback via JSONP (script tag), usado quando fetch()/XHR são bloqueados
+  // (ex.: abrindo o arquivo diretamente via file:// no navegador, sem servidor).
+  // Não depende de CORS pois carrega um <script> normal, assim como <img>/<link>.
+  function fetchViaGvizJsonp(id, gid) {
+    return new Promise((resolve, reject) => {
+      const prevGoogle = window.google;
+      const cleanup = () => {
+        clearTimeout(timer);
+        if (script && script.parentNode) script.parentNode.removeChild(script);
+        window.google = prevGoogle;
+      };
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error("Tempo esgotado ao carregar a planilha (JSONP)."));
+      }, 15000);
+      window.google = {
+        visualization: {
+          Query: {
+            setResponse: function (json) {
+              cleanup();
+              try {
+                if (!json || json.status === "error") {
+                  const msg = (json && json.errors && json.errors[0] && json.errors[0].detailed_message) || "Erro ao ler a planilha.";
+                  reject(new Error(msg));
+                  return;
+                }
+                const cols = json.table.cols.map((c, i) => (c.label && c.label.trim()) ? c.label.trim() : ("Coluna " + (i + 1)));
+                const rows = json.table.rows.map(r => {
+                  const obj = {};
+                  cols.forEach((colName, i) => {
+                    const cell = r.c[i];
+                    let v = cell ? cell.v : "";
+                    if (v === null || v === undefined) v = "";
+                    obj[colName] = String(v);
+                  });
+                  return obj;
+                }).filter(r => Object.values(r).some(v => v !== "" && v !== null && v !== undefined));
+                resolve({ headers: cols, rows });
+              } catch (e) {
+                reject(e);
+              }
+            }
+          }
+        }
+      };
+      const script = document.createElement("script");
+      script.src = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?gid=${gid}&tqx=out:json&headers=1&_=${Date.now()}`;
+      script.onerror = () => {
+        cleanup();
+        reject(new Error("Não foi possível carregar o script da planilha."));
+      };
+      document.head.appendChild(script);
+    });
+  }
+
+  function onCsvText(text) {
+    const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+    if (parsed.errors && parsed.errors.length) {
+      const fatal = parsed.errors.filter(e => e.type !== "FieldMismatch");
+      if (fatal.length) console.warn("Avisos ao ler CSV:", parsed.errors.slice(0, 5));
+    }
+    const headers = parsed.meta.fields || [];
+    const rows = parsed.data.filter(r => Object.values(r).some(v => v !== "" && v !== null && v !== undefined));
+    if (!headers.length || !rows.length) {
+      throw new Error("Não foi possível identificar linhas/colunas válidas no arquivo.");
+    }
+    ingestData(headers, rows);
+  }
+
+  function ingestData(headers, rows) {
+    State.headers = headers;
+    State.rowsRaw = rows;
+    const { processedRows, resolved, excludedNoConsent, totalRaw, hasValorColumns } = Engine.prepareDataset(rows, headers);
+    if (!processedRows.length) {
+      setStatus("Os dados foram lidos, mas nenhuma linha ficou disponível após os filtros de consentimento. Verifique se a coluna 'Você concorda em participar dessa pesquisa?' existe na planilha.", "error");
+      return;
+    }
+    State.processedRows = processedRows;
+    State.resolved = resolved;
+    State.excludedNoConsent = excludedNoConsent;
+    State.totalRaw = totalRaw;
+    State.filters = {};
+    console.log("[Dashboard] Formato detectado:", hasValorColumns ? "Novo (com códigos e colunas valor)" : "Antigo (texto sem códigos)", "| Colunas (valor):", hasValorColumns ? "SIM" : "NÃO");
+    buildFilterOptions();
+    showDashboard();
+  }
+
+  $("#btnLoadUrl").addEventListener("click", async () => {
+    const raw = $("#inputUrl").value.trim();
+    if (!raw) { setStatus("Cole o link da planilha do Google Sheets.", "error"); return; }
+    const parsedId = parseGoogleSheetsId(raw);
+    if (!parsedId) { setStatus("Não reconheci esse link como um link do Google Sheets. Verifique se ele contém '/d/ID_DA_PLANILHA/'.", "error"); return; }
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${parsedId.id}/export?format=csv&gid=${parsedId.gid}`;
+    setStatus('<span class="spinner"></span> Carregando respostas da planilha…', "info");
+    const btn = $("#btnLoadUrl"); btn.disabled = true;
+    try {
+      let loaded = false;
+      // 1ª tentativa: requisição direta (funciona em servidores/hospedagem, ex. GitHub Pages).
+      try {
+        const text = await fetchText(csvUrl);
+        onCsvText(text);
+        loaded = true;
+      } catch (fetchErr) {
+        console.warn("Falha ao buscar via fetch, tentando modo alternativo (JSONP):", fetchErr);
+      }
+      // 2ª tentativa: JSONP via gviz — funciona mesmo abrindo o arquivo diretamente (file://),
+      // onde o navegador bloqueia fetch()/XHR para outros domínios.
+      if (!loaded) {
+        const { headers, rows } = await fetchViaGvizJsonp(parsedId.id, parsedId.gid);
+        if (!headers.length || !rows.length) {
+          throw new Error("Não foi possível identificar linhas/colunas válidas na planilha.");
+        }
+        ingestData(headers, rows);
+        loaded = true;
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus(
+        "Não foi possível carregar a planilha automaticamente (" + err.message + "). " +
+        "Confirme que o compartilhamento está definido como <b>\"Qualquer pessoa com o link — Leitor\"</b>. " +
+        "Se o problema persistir, use a aba <b>Enviar arquivo</b> (exporte a planilha como CSV: Arquivo → Fazer download → Valores separados por vírgula) ou <b>Colar dados</b>.",
+        "error"
+      );
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $("#fileInput").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    $("#fileName").textContent = file.name;
+    setStatus('<span class="spinner"></span> Lendo arquivo…', "info");
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        if (/\.xlsx?$/i.test(file.name) && window.XLSX) {
+          const wb = XLSX.read(ev.target.result, { type: "binary" });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const csv = XLSX.utils.sheet_to_csv(ws);
+          onCsvText(csv);
+        } else {
+          onCsvText(ev.target.result);
+        }
+      } catch (err) {
+        console.error(err);
+        setStatus("Erro ao processar o arquivo: " + err.message, "error");
+      }
+    };
+    if (/\.xlsx?$/i.test(file.name)) reader.readAsBinaryString(file);
+    else reader.readAsText(file, "UTF-8");
+  });
+  $("#filePickArea").addEventListener("click", () => $("#fileInput").click());
+  $("#filePickArea").addEventListener("dragover", (e) => { e.preventDefault(); });
+  $("#filePickArea").addEventListener("drop", (e) => {
+    e.preventDefault();
+    if (e.dataTransfer.files[0]) {
+      $("#fileInput").files = e.dataTransfer.files;
+      $("#fileInput").dispatchEvent(new Event("change"));
+    }
+  });
+
+  $("#btnLoadPaste").addEventListener("click", () => {
+    const txt = $("#pasteArea").value;
+    if (!txt.trim()) { setStatus("Cole os dados (CSV ou colados do Sheets/Excel) na caixa acima.", "error"); return; }
+    try { onCsvText(txt); } catch (err) { setStatus("Erro ao processar os dados colados: " + err.message, "error"); }
+  });
+
+  $("#btnBackToLoad").addEventListener("click", () => {
+    $("#dashScreen").style.display = "none";
+    $("#loadScreen").style.display = "flex";
+  });
+
+  // ---------------------------------------------------------------------
+  // Filtros
+  // ---------------------------------------------------------------------
+  function uniqueSorted(processedRows, key) {
+    const set = new Set();
+    processedRows.forEach(r => { const v = r.demo[key]; if (v !== null && v !== undefined && v !== "") set.add(v); });
+    return Array.from(set).sort((a, b) => String(a).localeCompare(String(b), "pt-BR"));
+  }
+
+  function buildFilterOptions() {
+    const wrap = $("#filtersWrap");
+    wrap.innerHTML = "";
+    const filterCols = CONFIG.DEMO_COLUMNS.filter(c => c.filterable);
+    filterCols.forEach(c => {
+      const opts = uniqueSorted(State.processedRows, c.key);
+      const group = document.createElement("div");
+      group.className = "f-group";
+      group.innerHTML = `<label>${c.label}</label><select multiple size="1" data-key="${c.key}"></select>`;
+      wrap.appendChild(group);
+    });
+    // usar selects simples (dropdown "Todos" + múltiplos via checkboxes seria mais custoso); optamos por <select> nativo múltiplo compacto
+    $$("#filtersWrap select").forEach(sel => {
+      const key = sel.dataset.key;
+      const opts = uniqueSorted(State.processedRows, key);
+      sel.multiple = false;
+      sel.innerHTML = `<option value="">Todas / Todos</option>` + opts.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join("");
+      sel.addEventListener("change", () => {
+        const v = sel.value;
+        if (v) State.filters[key] = [v]; else delete State.filters[key];
+        applyFiltersAndRender();
+      });
+    });
+    const clearBtn = document.createElement("button");
+    clearBtn.className = "btn secondary";
+    clearBtn.textContent = "Limpar filtros";
+    clearBtn.addEventListener("click", () => {
+      State.filters = {};
+      $$("#filtersWrap select").forEach(s => s.value = "");
+      applyFiltersAndRender();
+    });
+    wrap.appendChild(clearBtn);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function applyFiltersAndRender() {
+    State.filtered = Engine.applyFilters(State.processedRows, State.filters);
+    $("#respCount").textContent = State.filtered.length.toLocaleString("pt-BR");
+    renderActiveView();
+  }
+
+  // ---------------------------------------------------------------------
+  // Navegação por abas
+  // ---------------------------------------------------------------------
+  $$(".tabs button").forEach(btn => btn.addEventListener("click", () => {
+    $$(".tabs button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    $$(".view").forEach(v => v.classList.remove("active"));
+    State.activeView = btn.dataset.view;
+    $("#view-" + State.activeView).classList.add("active");
+    renderActiveView();
+  }));
+
+  function renderActiveView() {
+    const rows = State.filtered || State.processedRows;
+    if (!rows) return;
+    switch (State.activeView) {
+      case "overview": renderOverview(rows); break;
+      case "clima": renderClima(rows); break;
+      case "engajamento": renderEngajamento(rows); break;
+      case "saude": renderSaude(rows); break;
+      case "habitos": renderHabitos(rows); break;
+      case "familia": renderFamilia(rows); break;
+      case "escolas": renderEscolas(rows); break;
+      case "correlacoes": renderCorrelacoes(rows); break;
+      case "diferenca_medias": renderDiferencaMedias(rows); break;
+      case "matriz_riscos": renderMatrizRiscos(rows); break;
+    }
+  }
+
+  function showDashboard() {
+    $("#loadScreen").style.display = "none";
+    $("#dashScreen").style.display = "block";
+    const n = State.processedRows.length;
+    $("#respCount").textContent = n.toLocaleString("pt-BR");
+    applyFiltersAndRender();
+  }
+
+  // ---------------------------------------------------------------------
+  // Índices auxiliares de acesso
+  // ---------------------------------------------------------------------
+  function indexDef(id) { return CONFIG.INDICES.find(i => i.id === id); }
+  function indexScores(rows, id) { return rows.map(r => r.indices[id] && r.indices[id].score).filter(v => v !== null && v !== undefined); }
+  function indexMean(rows, id) { return Engine.mean(indexScores(rows, id)); }
+
+  // ---------- Índice virtual: Sofrimento Psíquico ----------
+  // Composto pelos 5 itens de saúde mental (PeNSE) normalizado 0-100.
+  // Quanto maior, mais sintomas. direction = "risk".
+  const SOFRIMENTO_PSQ_DEF = {
+    id: "sofrimento_psiquico",
+    label: "Saúde Mental (Sofrimento Psíquico)",
+    short: "Sofr. Psíq.",
+    direction: "risk",
+    desc: "Composto pelos cinco indicadores PeNSE (preocupação excessiva, tristeza, sensação de descaso, irritabilidade e ideação suicida). Quanto maior o escore, maior o sofrimento psíquico autorrelatado nos últimos 30 dias."
+  };
+  function sofrimentoPsiquicoScore(row) {
+    const items = CONFIG.MENTAL_HEALTH_ITEMS;
+    const opts = CONFIG.SCALES[CONFIG.MENTAL_HEALTH_SCALE];
+    const vals = items.map(it => row.mental[it.id]).filter(v => v !== -1 && v !== null && v !== undefined);
+    if (!vals.length) return null;
+    const scores = vals.map(v => (v / (opts.length - 1)) * 100);
+    return scores.reduce((a, b) => a + b, 0) / scores.length;
+  }
+  // Getter unificado para escore por respondente (índices reais + virtual)
+  function rowScore(row, id) {
+    if (id === "sofrimento_psiquico") return sofrimentoPsiquicoScore(row);
+    return row.indices[id] ? row.indices[id].score : null;
+  }
+  // Getter unificado para definição (índices reais + virtual)
+  function defOf(id) {
+    if (id === "sofrimento_psiquico") return SOFRIMENTO_PSQ_DEF;
+    return indexDef(id);
+  }
+  function allScores(rows, id) { return rows.map(r => rowScore(r, id)).filter(v => v !== null && v !== undefined); }
+  function meanOf(rows, id) { return Engine.mean(allScores(rows, id)); }
+
+  // ---------------------------------------------------------------------
+  // VISÃO GERAL
+  // ---------------------------------------------------------------------
+  function renderOverview(rows) {
+    const el = $("#view-overview");
+    const totalConsented = State.processedRows.length;
+    const pctParticipacao = State.totalRaw ? (totalConsented / State.totalRaw) * 100 : null;
+    const sexoDist = catDist(rows, "sexo");
+    const validScores = rows.map(r => r.indices["validade_resposta"] && r.indices["validade_resposta"].score).filter(v => v != null);
+    const validTop = validScores.length ? (validScores.filter(v => v >= 66.6).length / validScores.length) * 100 : null;
+
+    // Cálculos para o parágrafo de síntese
+    const n = rows.length;
+    const sexoEntries = Object.entries(catDist(rows, "sexo")).sort((a, b) => b[1] - a[1]);
+    const sexoDom = sexoEntries[0] || ["—", 0];
+    const sexoDomPct = n ? (sexoDom[1] / n) * 100 : 0;
+    const racaEntries = Object.entries(catDist(rows, "raca")).sort((a, b) => b[1] - a[1]);
+    const racaDom = racaEntries[0] || ["—", 0];
+    const racaDomPct = n ? (racaDom[1] / n) * 100 : 0;
+    const idadeEntries = Object.entries(catDist(rows, "idade")).sort((a, b) => b[1] - a[1]);
+    const idadeDom = idadeEntries[0] || ["—", 0];
+    const idadeDomPct = n ? (idadeDom[1] / n) * 100 : 0;
+    const serieEntries = Object.entries(catDist(rows, "serie")).sort((a, b) => b[1] - a[1]);
+    const serieDom = serieEntries[0] || ["—", 0];
+    const serieDomPct = n ? (serieDom[1] / n) * 100 : 0;
+    const turnoEntries = Object.entries(catDist(rows, "turno")).sort((a, b) => b[1] - a[1]);
+    const turnoDom = turnoEntries[0] || ["—", 0];
+    const turnoDomPct = n ? (turnoDom[1] / n) * 100 : 0;
+    const retencaoEntries = Object.entries(catDist(rows, "retencao")).sort((a, b) => b[1] - a[1]);
+    const retencaoDom = retencaoEntries[0] || ["—", 0];
+    const retencaoDomPct = n ? (retencaoDom[1] / n) * 100 : 0;
+    const retencaoSim = Object.entries(catDist(rows, "retencao")).filter(([k]) => k && k.toLowerCase().startsWith("sim")).reduce((a, [, v]) => a + v, 0);
+    const retencaoSimPct = n ? (retencaoSim / n) * 100 : 0;
+    const maeEntries = Object.entries(catDist(rows, "maeEscolaridade")).sort((a, b) => b[1] - a[1]);
+    const maeDom = maeEntries[0] || ["—", 0];
+    const maeDomPct = n ? (maeDom[1] / n) * 100 : 0;
+    const nEscolas = uniqueSorted(rows, "escola").length;
+
+    const synov = `
+      <div class="card" style="margin-top:20px;background:#f8fafc;border-left:4px solid var(--brand)">
+        <h3>Síntese dos dados</h3>
+        <p style="font-size:13.5px;line-height:1.65;color:var(--ink);margin:8px 0 0">
+          A presente análise contempla <b>${n.toLocaleString("pt-BR")}</b> respondentes válidos${State.excludedNoConsent ? `, após exclusão de ${State.excludedNoConsent} participação(ões) sem consentimento livre e esclarecido` : ""}, distribuídos em <b>${nEscolas}</b> unidade(s) escolar(es) da Rede Municipal de Joinville. A taxa de participação efetiva, calculada como o quociente entre o número de questionários válidos e o total de registros coletados, atingiu <b>${fmtPct(pctParticipacao)}</b>. A confiabilidade autorrelatada das respostas — operacionalizada como a proporção de estudantes que concordaram estar respondendo com veracidade ao item de validade — foi de <b>${fmtPct(validTop)}</b>, valor que se situa em patamar aceitável para estudos autorrelatados em população escolar. Quanto ao perfil sociodemográfico, observou-se predomínio de estudantes do sexo <b>${sexoDom[0].toLowerCase()}</b> (${fmtPct(sexoDomPct)}), de cor/raça <b>${racaDom[0].toLowerCase()}</b> (${fmtPct(racaDomPct)}), na faixa etária de <b>${idadeDom[0].toLowerCase()}</b> (${fmtPct(idadeDomPct)}), majoritariamente matriculados no <b>${serieDom[0].toLowerCase()}</b> (${fmtPct(serieDomPct)}) e no turno <b>${turnoDom[0].toLowerCase()}</b> (${fmtPct(turnoDomPct)}). Em relação ao histórico de retenção, ${fmtPct(retencaoDomPct)} reportaram "${retencaoDom[0]}", ao passo que ${fmtPct(retencaoSimPct)} indicaram já ter repetido ao menos uma vez, indicador relevante para a interpretação das dimensões de engajamento e pertencimento. Por fim, a escolaridade materna mais frequente foi "<b>${maeDom[0]}</b>" (${fmtPct(maeDomPct)}), variável que funciona como proxy do nível socioeconômico familiar e deverá ser considerada como variável de controle nas análises inferenciais subsequentes. Os achados descritivos deste bloco fornecem a base amostral sobre a qual se assentam os construtos multidimensionais explorados nas demais abas do dashboard.
+        </p>
+      </div>
+    `;
+
+    el.innerHTML = `
+      <div class="grid cols-4">
+        ${kpiCard("Respondentes válidos", totalConsented.toLocaleString("pt-BR"), `${State.excludedNoConsent} excluído(s) por não consentir`)}
+        ${kpiCard("Após filtros atuais", rows.length.toLocaleString("pt-BR"), pctParticipacao !== null ? `${fmtPct(pctParticipacao)} do total coletado consentiu` : "")}
+        ${kpiCard("Escolas com respostas", uniqueSorted(rows, "escola").length.toLocaleString("pt-BR"), "unidades representadas na seleção atual")}
+        ${kpiCard("Confiabilidade das respostas", fmtPct(validTop), "% que concordam estar dizendo a verdade no questionário")}
+      </div>
+
+      <div class="section-title">Perfil sociodemográfico <span class="tag">seleção atual</span></div>
+      <div class="grid cols-3">
+        <div class="card"><h3>Sexo</h3><div class="chart-wrap short"><canvas id="chOvSexo"></canvas></div></div>
+        <div class="card"><h3>Cor/raça</h3><div class="chart-wrap short"><canvas id="chOvRaca"></canvas></div></div>
+        <div class="card"><h3>Idade</h3><div class="chart-wrap short"><canvas id="chOvIdade"></canvas></div></div>
+        <div class="card"><h3>Ano escolar</h3><div class="chart-wrap short"><canvas id="chOvSerie"></canvas></div></div>
+        <div class="card"><h3>Turno</h3><div class="chart-wrap short"><canvas id="chOvTurno"></canvas></div></div>
+        <div class="card"><h3>Repetiu algum ano?</h3><div class="chart-wrap short"><canvas id="chOvRetencao"></canvas></div></div>      
+        <div class="card"><h3>Escolaridade da mãe</h3><div class="chart-wrap short"><canvas id="chOvMae"></canvas></div></div>      
+        <div class="card" style="display: none;"><h3>Respostas ao longo do tempo</h3><div class="chart-wrap short"><canvas id="chOvTempo"></canvas></div></div>
+      </div>
+
+      ${synov}
+
+      <div class="footer-note">Fonte: Diagnóstico de Clima Escolar da Rede Municipal de Joinville (2026). Escala Delaware de Clima Escolar (Bear et al., 2015) e itens PeNSE/PISA/GSHS.</div>
+    `;
+
+    barCategorical("chOvSexo", rows, "sexo");
+    barCategorical("chOvRaca", rows, "raca");
+    barCategorical("chOvIdade", rows, "idade");
+    barCategorical("chOvSerie", rows, "serie");
+    barCategorical("chOvTurno", rows, "turno");
+    barCategorical("chOvRetencao", rows, "retencao");
+    barCategorical("chOvMae", rows, "maeEscolaridade", "bar", true);
+
+    // Linha do tempo de respostas
+    const dayCounts = {};
+    rows.forEach(r => {
+      const ts = r.demo.timestamp;
+      if (!ts) return;
+      const d = String(ts).split(" ")[0];
+      dayCounts[d] = (dayCounts[d] || 0) + 1;
+    });
+    const days = Object.keys(dayCounts).sort();
+    makeChart("chOvTempo", {
+      type: "line",
+      data: { labels: days, datasets: [{ label: "Respostas", data: days.map(d => dayCounts[d]), borderColor: PALETTE[0], backgroundColor: "rgba(36,84,255,.12)", fill: true, tension: .25 }] },
+      options: { ...CHART_DEFAULTS, plugins: { legend: { display: false } }, scales: { x: { ticks: { maxRotation: 60, minRotation: 45, font: { size: 9 } } } } }
+    });
+
+    // Top escolas
+    const counts = {};
+    rows.forEach(r => { const s = r.demo.escola; if (s) counts[s] = (counts[s] || 0) + 1; });
+    const arr = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const max = arr.length ? arr[0][1] : 1;
+    const topSchoolsEl = $("#topSchoolsList");
+    if (topSchoolsEl) topSchoolsEl.innerHTML = arr.map(([name, c]) => rankBarHtml(name, c, max, c)).join("") || emptyNote();
+  }
+
+  function catDist(rows, key) {
+    const c = {};
+    rows.forEach(r => { const v = r.demo[key]; if (v) c[v] = (c[v] || 0) + 1; });
+    return c;
+  }
+
+  function barCategorical(canvasId, rows, key, type, horizontal) {
+    const c = catDist(rows, key);
+    const labels = Object.keys(c).sort((a, b) => c[b] - c[a]);
+    const data = labels.map(l => c[l]);
+    const total = data.reduce((a, b) => a + b, 0);
+    const pct = data.map(v => total ? (v / total) * 100 : 0);
+    // Tooltip padrão para gráficos de valores absolutos: "frequência acumulada (frequência percentual)".
+    // Ex.: "820 (29,00%)". Usa ctx.raw para obter o valor real (count) independentemente da orientação do gráfico.
+    const tooltipAbs = {
+      callbacks: {
+        label: (ctx) => {
+          const v = ctx.raw; // valor absoluto (frequência acumulada da categoria)
+          const i = ctx.dataIndex;
+          const p = pct[i] || 0;
+          const lbl = ctx.dataset.label || labels[i];
+          const vStr = (v !== null && v !== undefined) ? String(v) : "—";
+          return `${lbl}: ${vStr} (${fmtPct(p)})`;
+        }
+      }
+    };
+    if (type === "doughnut") {
+      makeChart(canvasId, {
+        type: "doughnut",
+        data: { labels, datasets: [{ data, backgroundColor: PALETTE }] },
+        options: { ...CHART_DEFAULTS, plugins: { legend: { position: "bottom" }, tooltip: tooltipAbs } }
+      });
+    } else {
+      makeChart(canvasId, {
+        type: "bar",
+        data: { labels, datasets: [{ data, backgroundColor: PALETTE[0], borderRadius: 4 }] },
+        options: {
+          ...CHART_DEFAULTS,
+          indexAxis: horizontal ? "y" : "x",
+          plugins: { legend: { display: false }, tooltip: tooltipAbs },
+          scales: horizontal
+            ? { x: { beginAtZero: true }, y: { ticks: { font: { size: 10 } } } }
+            : { y: { beginAtZero: true }, x: { ticks: { font: { size: 10 } } } }
+        }
+      });
+    }
+  }
+
+  function kpiCard(label, value, sub) {
+    return `<div class="card kpi"><div class="value">${value}</div><div class="label">${label}</div>${sub ? `<div class="delta">${sub}</div>` : ""}</div>`;
+  }
+  function emptyNote(msg) { return `<div class="empty-note">${msg || "Sem dados suficientes para esta visualização com os filtros atuais."}</div>`; }
+  function rankBarHtml(name, value, max, displayVal, direction) {
+    const pct = max ? (value / max) * 100 : 0;
+    const color = direction ? colorForValue(value, direction) : PALETTE[0];
+    return `<div class="rank-bar"><div class="name" title="${escapeHtml(name)}">${escapeHtml(name)}</div><div class="track"><div class="fill" style="width:${pct}%;background:${color}"></div></div><div class="val">${typeof displayVal === "number" ? fmt1(displayVal) : displayVal}</div></div>`;
+  }
+
+  // ---------------------------------------------------------------------
+  // Componente genérico: cartão de índice (gauge + n)
+  // ---------------------------------------------------------------------
+  function indexCardHtml(idxId, rows, customSub) {
+    const def = indexDef(idxId);
+    const agg = Engine.aggregateIndex(rows, idxId);
+    const color = colorForValue(agg.mean, def.direction);
+    const label = levelLabel(agg.mean, def.direction);
+    const subText = customSub || (def.direction === "risk" ? "Índice de risco (0-100)" : "Índice (0-100, maior = mais favorável)") + " · n=" + agg.n;
+    return `
+      <div class="card">
+        <h3>${def.label} <span class="info-icon" title="${escapeHtml(def.desc || "")}">i</span></h3>
+        <div class="sub">${subText}</div>
+        <div class="kpi"><div class="value" style="color:${color}">${fmt1(agg.mean)}</div></div>
+        <div style="background:#eef1f6;border-radius:8px;height:10px;overflow:hidden;margin:8px 0 6px">
+          <div style="width:${agg.mean || 0}%;height:100%;background:${color}"></div>
+        </div>
+        <span class="pill ${label.includes('Alto') && def.direction!=='risk' ? 'good' : (label.includes('risco') && !label.includes('Baixo') ? 'bad' : (label.includes('Baixo') && def.direction==='risk' ? 'good': (label==='Médio'||label.includes('moderado')?'warn':'bad')))}">${label}</span>
+      </div>`;
+  }
+
+  // Distribuição (stacked %) dos itens de um índice, na direção original das perguntas (sem inversão),
+  // para leitura literal das respostas.
+  function itemBreakdownChart(canvasId, rows, idxId) {
+    const def = indexDef(idxId);
+    const options = CONFIG.SCALES[def.scale];
+    const cols = State.resolved.indices[idxId];
+    const labels = cols.map(c => truncate((c.code ? c.code + " – " : "") + c.label, 52));
+    const datasets = options.map((opt, i) => ({
+      label: opt,
+      data: cols.map(c => {
+        if (!c.header) return 0;
+        const d = Engine.distribution(rows, c.header, options);
+        return d.total ? d.pct[i] : 0;
+      }),
+      backgroundColor: likertColor(opt, options.length, i)
+    }));
+    makeChart(canvasId, {
+      type: "bar",
+      data: { labels, datasets },
+      options: {
+        ...CHART_DEFAULTS,
+        indexAxis: "y",
+        scales: { x: { stacked: true, max: 100, ticks: { callback: v => v + "%" } }, y: { stacked: true, ticks: { font: { size: 10.5 } } } },
+        plugins: { legend: { position: "bottom" }, tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${fmtPct(c.parsed.x)}` } } }
+      }
+    });
+  }
+  function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+  function likertColor(opt, total, i) {
+    const negWords = ["discordo muito", "discordo", "nunca", "não", "nenhum", "quase nunca", "menos que 4 horas"];
+    // gradiente vermelho -> verde conforme posição na escala
+    const t = total > 1 ? i / (total - 1) : 0;
+    return colorForValue(t * 100, "positive");
+  }
+
+  // ---------------------------------------------------------------------
+  // CLIMA ESCOLAR
+  // ---------------------------------------------------------------------
+  const CLIMA_IDS = ["rel_professor_estudante", "rel_estudante_estudante", "seguranca_escolar", "justica_clareza_regras", "engajamento_escolar_rede"];
+  function renderClima(rows) {
+    const el = $("#view-clima");
+    el.innerHTML = `
+      <div class="section-title">Modelo de Clima Escolar (Escala Delaware / Bear et al., 2015)</div>
+      <div class="section-desc">O modelo combina duas grandes dimensões — <b>Suporte</b> (relações professor-estudante e estudante-estudante) e <b>Estrutura</b> (segurança e justiça/clareza das regras) — além de dimensões transversais: engajamento coletivo e bullying.</div>
+      <div class="grid cols-2">
+        <div class="card"><h3>Radar das dimensões de Suporte e Estrutura</h3><div class="chart-wrap tall"><canvas id="chClimaRadar"></canvas></div></div>
+        <div class="card"><h3>Comparativo das médias (0-100)</h3><div class="chart-wrap tall"><canvas id="chClimaBar"></canvas></div></div>
+      </div>
+      <div class="grid cols-4" style="margin-top:16px">
+        ${CLIMA_IDS.map(id => indexCardHtml(id, rows)).join("")}
+        ${indexCardHtml("bullying_escolar", rows)}
+      </div>
+      <div class="section-title" style="margin-top:28px">Detalhamento por item</div>
+      <div class="section-desc">Selecione uma dimensão para ver a distribuição literal das respostas (% por categoria) em cada pergunta.</div>
+      <div class="card">
+        <div class="school-select-row">
+          <select id="climaDimSelect">
+            ${[...CLIMA_IDS, "bullying_escolar"].map(id => `<option value="${id}">${indexDef(id).label}</option>`).join("")}
+          </select>
+        </div>
+        <div class="chart-wrap tall" style="height:320px"><canvas id="chClimaItems"></canvas></div>
+      </div>
+    `;
+
+    makeChart("chClimaRadar", {
+      type: "radar",
+      data: {
+        labels: CLIMA_IDS.map(id => indexDef(id).short),
+        datasets: [{
+          label: "Rede (seleção atual)",
+          data: CLIMA_IDS.map(id => indexMean(rows, id)),
+          borderColor: PALETTE[0], backgroundColor: "rgba(36,84,255,.18)", pointBackgroundColor: PALETTE[0]
+        }]
+      },
+      options: { ...CHART_DEFAULTS, scales: { r: { min: 0, max: 100, ticks: { stepSize: 25 } } } }
+    });
+
+    const allIds = [...CLIMA_IDS, "bullying_escolar"];
+    makeChart("chClimaBar", {
+      type: "bar",
+      data: {
+        labels: allIds.map(id => indexDef(id).short),
+        datasets: [{
+          label: "Média (0-100)",
+          data: allIds.map(id => indexMean(rows, id)),
+          backgroundColor: allIds.map(id => colorForValue(indexMean(rows, id), indexDef(id).direction)),
+          borderRadius: 5
+        }]
+      },
+      options: { ...CHART_DEFAULTS, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+    });
+
+    const sel = $("#climaDimSelect");
+    const draw = () => itemBreakdownChart("chClimaItems", rows, sel.value);
+    sel.addEventListener("change", draw);
+    draw();
+  }
+
+  // ---------------------------------------------------------------------
+  // ENGAJAMENTO & PERTENCIMENTO
+  // ---------------------------------------------------------------------
+  const ENGAJ_IDS = ["engaj_cognitivo_comportamental", "engaj_emocional", "pertencimento_escolar", "mentalidade_crescimento"];
+  function renderEngajamento(rows) {
+    const el = $("#view-engajamento");
+
+    // Cálculos para o parágrafo de síntese
+    const engCogn = Engine.aggregateIndex(rows, "engaj_cognitivo_comportamental");
+    const engEmo = Engine.aggregateIndex(rows, "engaj_emocional");
+    const pert = Engine.aggregateIndex(rows, "pertencimento_escolar");
+    const ment = Engine.aggregateIndex(rows, "mentalidade_crescimento");
+    const fmtN = (v) => (v === null || v === undefined || isNaN(v)) ? "—" : v.toFixed(2);
+
+    // Legenda customizada para a Mentalidade Fixa (interpretação do escore 0-100)
+    const mentalSub = `Índice de risco (0-100; quanto <b>maior</b> o escore, <b>pior</b> o resultado — mentalidade fixa mais forte) · n=${ment.n}`;
+
+    const synEng = `
+      <div class="card" style="margin-top:20px;background:#f8fafc;border-left:4px solid var(--brand)">
+        <h3>Síntese dos dados</h3>
+        <p style="font-size:13.5px;line-height:1.65;color:var(--ink);margin:8px 0 0">
+          Os quatro construtos analisados neste bloco — Engajamento Cognitivo-Comportamental, Engajamento Emocional, Sentimento de Pertencimento Escolar e Mentalidade Fixa — apresentaram, respectivamente, médias gerais de <b>${fmtN(engCogn.mean)}</b> (DP = ${fmtN(engCogn.sd)}; n = ${engCogn.n}), <b>${fmtN(engEmo.mean)}</b> (DP = ${fmtN(engEmo.sd)}; n = ${engEmo.n}), <b>${fmtN(pert.mean)}</b> (DP = ${fmtN(pert.sd)}; n = ${pert.n}) e <b>${fmtN(ment.mean)}</b> (DP = ${fmtN(ment.sd)}; n = ${ment.n}) na escala padronizada 0-100. Os escores de Engajamento Cognitivo-Comportamental e Engajamento Emocional, ambos com direction positiva, situaram-se em patamares que sugerem ${engEmo.mean !== null && engEmo.mean >= 67 ? "engajamento relativamente favorável" : (engEmo.mean !== null && engEmo.mean >= 33 ? "engajamento moderado" : "baixo engajamento")} da população estudantil, ao passo que o Sentimento de Pertencimento Escolar (PISA) atingiu média de ${fmtN(pert.mean)}, indicando ${pert.mean !== null && pert.mean >= 67 ? "forte percepção de inclusão e vínculo com a comunidade escolar" : (pert.mean !== null && pert.mean >= 33 ? "vínculo moderado, com espaço para fortalecimento das práticas de acolhimento" : "vínculo fragilizado, demandando intervenções focalizadas")}. Quanto à Mentalidade Fixa (direction de risco), a média de ${fmtN(ment.mean)} aponta para ${ment.mean !== null && ment.mean >= 67 ? "predomínio expressivo da crença de que inteligência e habilidades são inatas e imutáveis, achado preocupante à luz da literatura sobre mentalidade de crescimento (Dweck, 2006)" : (ment.mean !== null && ment.mean >= 33 ? "presença moderada de crenças associadas à mentalidade fixa, com coexistência de visões estáticas e dinâmicas sobre a capacidade de aprendizagem" : "predomínio de uma mentalidade de crescimento, fator protetivo para o engajamento acadêmico")}. Em conjunto, os resultados indicam que, embora os estudantes reportem engajamento e pertencimento em níveis aceitáveis, persistem crenças sobre a imutabilidade da inteligência que podem minar a persistência frente a desafios acadêmicos. Recomenda-se que as iniciativas de desenvolvimento profissional docente e os programas de tutoria entre pares contemplem, de maneira explícita, intervenções baseadas em mentalidade de crescimento, sobretudo entre os segmentos com escores mais elevados neste indicador.
+        </p>
+      </div>
+    `;
+
+    el.innerHTML = `
+      <div class="section-title">Engajamento individual, pertencimento e mentalidade</div>
+      <div class="section-desc">Engajamento cognitivo-comportamental e emocional (Holst, 2014); Sentimento de Pertencimento Escolar e Mentalidade Fixa/Crescimento (PISA, OCDE 2022). No índice de Mentalidade Fixa, quanto maior o valor, mais forte a crença de que habilidades são imutáveis (pior).</div>
+      <div class="grid cols-2">
+        <div class="card"><h3>Radar comparativo</h3><div class="chart-wrap tall"><canvas id="chEngajRadar"></canvas></div></div>
+        <div class="card"><h3>Médias por dimensão (0-100)</h3><div class="chart-wrap tall"><canvas id="chEngajBar"></canvas></div></div>
+      </div>
+      <div class="grid cols-4" style="margin-top:16px">
+        ${indexCardHtml("engaj_cognitivo_comportamental", rows)}
+        ${indexCardHtml("engaj_emocional", rows)}
+        ${indexCardHtml("pertencimento_escolar", rows)}
+        ${indexCardHtml("mentalidade_crescimento", rows, mentalSub)}
+      </div>
+
+      <div class="section-title" style="margin-top:28px">Detalhamento por item</div>
+      <div class="card">
+        <div class="school-select-row">
+          <select id="engajDimSelect">${ENGAJ_IDS.map(id => `<option value="${id}">${indexDef(id).label}</option>`).join("")}</select>
+        </div>
+        <div class="chart-wrap tall" style="height:320px"><canvas id="chEngajItems"></canvas></div>
+      </div>
+
+      ${synEng}
+
+      <div class="footer-note">Fonte: Escala de Engajamento Escolar (Holst, 2014), PISA (OCDE, 2022) e itens de Mentalidade (Dweck, 2006).</div>
+    `;
+    makeChart("chEngajRadar", {
+      type: "radar",
+      data: { labels: ENGAJ_IDS.map(id => indexDef(id).short), datasets: [{ label: "Rede (seleção atual)", data: ENGAJ_IDS.map(id => indexMean(rows, id)), borderColor: PALETTE[1], backgroundColor: "rgba(26,160,109,.18)", pointBackgroundColor: PALETTE[1] }] },
+      options: { ...CHART_DEFAULTS, scales: { r: { min: 0, max: 100, ticks: { stepSize: 25 } } } }
+    });
+    makeChart("chEngajBar", {
+      type: "bar",
+      data: { labels: ENGAJ_IDS.map(id => indexDef(id).short), datasets: [{ data: ENGAJ_IDS.map(id => indexMean(rows, id)), backgroundColor: ENGAJ_IDS.map(id => colorForValue(indexMean(rows, id), indexDef(id).direction)), borderRadius: 5 }] },
+      options: { ...CHART_DEFAULTS, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+    });
+    const sel = $("#engajDimSelect");
+    const draw = () => itemBreakdownChart("chEngajItems", rows, sel.value);
+    sel.addEventListener("change", draw); draw();
+  }
+
+  function groupedIndexByCategory(canvasId, rows, idxId, demoKey) {
+    const cats = uniqueSorted(rows, demoKey);
+    const def = indexDef(idxId);
+    const data = cats.map(cat => {
+      const subset = rows.filter(r => r.demo[demoKey] === cat);
+      return indexMean(subset, idxId);
+    });
+    makeChart(canvasId, {
+      type: "bar",
+      data: { labels: cats, datasets: [{ label: def.label, data, backgroundColor: cats.map((_, i) => PALETTE[i % PALETTE.length]), borderRadius: 5 }] },
+      options: { ...CHART_DEFAULTS, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // SAÚDE MENTAL & BEM-ESTAR
+  // ---------------------------------------------------------------------
+  // ORIGINAL: const PENSE_BRASIL_REF = { ansiedade: 50.9, humor_deprimido: 33.1, autodepreciacao: 34.0, irritabilidade: 43.9, ideacao_suicida: 24.1 };
+  const PENSE_BRASIL_REF = { ansiedade: 50.9, humor_deprimido: 28.3, autodepreciacao: 25.4, irritabilidade: 44.0, ideacao_suicida: 17.6 };
+  function renderSaude(rows) {
+    const el = $("#view-saude");
+    const items = CONFIG.MENTAL_HEALTH_ITEMS;
+    const opts = CONFIG.SCALES[CONFIG.MENTAL_HEALTH_SCALE];
+    const shares = items.map(it => {
+      let top = 0, total = 0;
+      rows.forEach(r => { const lvl = r.mental[it.id]; if (lvl === -1) return; total++; if (lvl >= opts.length - 2) top++; });
+      return total ? (top / total) * 100 : null;
+    });
+    // Contagens absolutas (para tooltip)
+    const shareCounts = items.map(it => {
+      let top = 0, total = 0;
+      rows.forEach(r => { const lvl = r.mental[it.id]; if (lvl === -1) return; total++; if (lvl >= opts.length - 2) top++; });
+      return { top, total };
+    });
+
+    const compositeScores = rows.map(r => {
+      const vals = items.map(it => r.mental[it.id]).filter(v => v !== -1).map(v => (v / (opts.length - 1)) * 100);
+      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    }).filter(v => v !== null);
+    const composite = Engine.mean(compositeScores);
+    const compositeSD = Engine.stddev(compositeScores);
+
+    const friendsDist = distributionForStandalone(rows, "amigos");
+    const semAmigos = friendsDist.total ? (friendsDist.counts[0] / friendsDist.total) * 100 : null;
+    const satisfVida = rows.map(r => r.standalone.satisfacaoVida).filter(v => v !== -1);
+    const satisfMean = satisfVida.length ? Engine.mean(satisfVida) : null; // já é 0-10 (nível=valor)
+
+    // Distribuição de amigos por sexo (novo gráfico)
+    const sexos = uniqueSorted(rows, "sexo");
+    const amigosPorSexo = sexos.map(sx => {
+      const subset = rows.filter(r => r.demo.sexo === sx);
+      const dist = distributionForStandalone(subset, "amigos");
+      return { sexo: sx, dist };
+    });
+    // Distribuição de satisfação por sexo (novo gráfico)
+    const satisfPorSexoMeans = sexos.map(sx => {
+      const subset = rows.filter(r => r.demo.sexo === sx);
+      const vals = subset.map(r => r.standalone.satisfacaoVida).filter(v => v !== -1);
+      return { sexo: sx, mean: vals.length ? Engine.mean(vals) : null, n: vals.length };
+    });
+
+    // Síntese dos dados
+    const fmtN = (v) => (v === null || v === undefined || isNaN(v)) ? "—" : v.toFixed(2);
+    const topSymptomIdx = shares.reduce((best, s, i) => (s !== null && (best === -1 || s > shares[best]) ? i : best), -1);
+    const topSymptom = topSymptomIdx >= 0 ? items[topSymptomIdx] : null;
+    const topSymptomPct = topSymptomIdx >= 0 ? shares[topSymptomIdx] : null;
+
+    const synSaude = `
+      <div class="card" style="margin-top:20px;background:#f8fafc;border-left:4px solid var(--brand)">
+        <h3>Síntese dos dados</h3>
+        <p style="font-size:13.5px;line-height:1.65;color:var(--ink);margin:8px 0 0">
+          O rastreio de saúde mental, baseado em cinco indicadores inspirados no PeNSE/IBGE (2024), revelou um índice de Saúde Mental (Sofrimento Psíquico) composto de <b>${fmtN(composite)}</b> (DP = ${fmtN(compositeSD)}; n = ${compositeScores.length}) na escala 0-100, em que valores mais elevados indicam maior frequência de sintomas autorrelatados nos últimos 30 dias. Em termos de prevalência pontual — definida como a proporção de estudantes que relataram cada sintoma "na maioria das vezes" ou "sempre" —, o indicador mais frequente foi <b>${topSymptom ? topSymptom.label.toLowerCase() : "—"}</b> (${fmtPct(topSymptomPct)}), seguido pelos demais indicadores com prevalências que devem ser interpretadas à luz da referência regional do PeNSE 2024 para a região Sul do Brasil. A comparação entre Joinville e a referência nacional evidencia ${shares.some(s => s !== null && PENSE_BRASIL_REF[items[shares.indexOf(s)].id] !== undefined && s > PENSE_BRASIL_REF[items[shares.indexOf(s)].id]) ? "patamares superiores aos da referência em pelo menos um dos indicadores, sugerindo a necessidade de investigação qualificada dos fatores contextuais associados" : "prevalências compatíveis ou inferiores às da referência nacional, embora a heterogeneidade entre indicadores recomende atenção focalizada aos sintomas mais frequentes"}. A análise estratificada por sexo revelou padrões consistentes com a literatura internacional, que sistematicamente documenta maior prevalência de sintomas internalizantes (ansiedade, depressão) entre estudantes do sexo feminino. Quanto aos indicadores de bem-estar subjetivo, ${fmtPct(semAmigos)} dos respondentes reportaram não possuir nenhum amigo próximo (referência PeNSE 2024: 3,5%), enquanto a satisfação média com a vida atingiu <b>${fmtN(satisfMean)}</b> na escala 0-10 (PISA). A identificação de casos com escores elevados no índice composto — sobretudo quando acompanhados de ideação suicida — deve disparar o fluxo de encaminhamento aos serviços de saúde mental disponíveis na rede, em conformidade com o protocolo de cuidado preconizado pelo Ministério da Saúde e pela Secretaria Municipal de Educação. Recomenda-se, ainda, a realização de análises longitudinais que permitam monitorar a evolução desses indicadores ao longo do tempo e avaliar o impacto das intervenções implementadas.
+        </p>
+      </div>
+    `;
+
+    el.innerHTML = `
+      <div class="section-title">Rastreio de saúde mental <span class="tag">PeNSE, IBGE 2024</span></div>
+      <div class="section-desc">Percentual de estudantes que relataram cada sintoma "na maioria das vezes" ou "sempre" nos últimos 30 dias, comparado à referência nacional (PeNSE 2024, região Sul).</div>
+      <div class="grid cols-4">
+        ${kpiCard("Saúde Mental (Sofrimento Psíquico)", fmt1(composite), "composto (0-100, maior = mais sintomas)")}
+        ${kpiCard("Sem nenhum amigo próximo", fmtPct(semAmigos), "referência PeNSE 2024: 3,5%")}
+        ${kpiCard("Satisfação com a vida (0-10)", fmt1(satisfMean), "escala PISA, quanto maior melhor")}
+        ${kpiCard("Amostra válida", rows.length.toLocaleString("pt-BR"), "respondentes na seleção atual")}
+      </div>
+      <div class="grid cols-2" style="margin-top:16px">
+        <div class="card"><h3>Sintomas: Joinville vs. referência nacional</h3><div class="chart-wrap tall"><canvas id="chSaudeBars"></canvas></div></div>
+        <div class="card"><h3>Sintomas por sexo (Joinville)</h3><div class="chart-wrap tall"><canvas id="chSaudeSexo"></canvas></div></div>
+      </div>
+
+      <div class="section-title" style="margin-top:28px">Detalhamento por item</div>
+      <div class="section-desc">Selecione um indicador para ver a distribuição literal das respostas (% por categoria) na escala de frequência (Nunca · Raramente · Às vezes · Na maioria das vezes · Sempre).</div>
+      <div class="card">
+        <div class="school-select-row">
+          <select id="saudeItemSelect">${items.map(it => `<option value="${it.id}">${it.label}</option>`).join("")}</select>
+        </div>
+        <div class="chart-wrap tall" style="height:340px"><canvas id="chSaudeItems"></canvas></div>
+      </div>
+
+      <div class="section-title" style="margin-top:28px">Indicadores de bem-estar subjetivo</div>
+      <div class="grid cols-2">
+        <div class="card"><h3>Quantidade de amigos(as) próximos(as) — total</h3><div class="chart-wrap"><canvas id="chAmigos"></canvas></div></div>
+        <div class="card"><h3>Quantidade de amigos(as) próximos(as) — por sexo</h3><div class="chart-wrap"><canvas id="chAmigosSexo"></canvas></div></div>
+        <div class="card"><h3>Satisfação geral com a vida (0-10) — distribuição</h3><div class="chart-wrap"><canvas id="chSatisf"></canvas></div></div>
+        <div class="card"><h3>Satisfação média com a vida (0-10) — por sexo</h3><div class="chart-wrap"><canvas id="chSatisfSexo"></canvas></div></div>
+      </div>
+
+      ${synSaude}
+
+      <div class="footer-note">Fonte: PeNSE (IBGE, 2024) e itens PISA (OCDE, 2022) para satisfação com a vida.</div>
+    `;
+
+    // Tooltip para chSaudeBars: mostra % e valor absoluto
+    makeChart("chSaudeBars", {
+      type: "bar",
+      data: {
+        labels: items.map(it => it.label),
+        datasets: [
+          { label: "Joinville (seleção atual)", data: shares, backgroundColor: PALETTE[4], borderRadius: 5 },
+          { label: "PeNSE Brasil 2024 (Região Sul)", data: items.map(it => PENSE_BRASIL_REF[it.id]), backgroundColor: "#c9d2e0", borderRadius: 5 }
+        ]
+      },
+      options: {
+        ...CHART_DEFAULTS,
+        indexAxis: "y",
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const v = ctx.parsed.x;
+                const i = ctx.dataIndex;
+                if (ctx.datasetIndex === 0 && shareCounts[i]) {
+                  return `${ctx.dataset.label}: ${fmtPct(v)} (${shareCounts[i].top}/${shareCounts[i].total})`;
+                }
+                return `${ctx.dataset.label}: ${fmtPct(v)}`;
+              }
+            }
+          }
+        },
+        scales: { x: { max: 100, ticks: { callback: v => v + "%" } }, y: { ticks: { font: { size: 10.5 } } } }
+      }
+    });
+
+    // Tooltip para chSaudeSexo: mostra % e valor absoluto
+    const chSaudeSexoCounts = sexos.map(sx => {
+      const subset = rows.filter(r => r.demo.sexo === sx);
+      return items.map(it => {
+        let top = 0, total = 0;
+        subset.forEach(r => { const lvl = r.mental[it.id]; if (lvl === -1) return; total++; if (lvl >= opts.length - 2) top++; });
+        return { top, total };
+      });
+    });
+    makeChart("chSaudeSexo", {
+      type: "bar",
+      data: {
+        labels: items.map(it => truncate(it.label, 22)),
+        datasets: sexos.map((sx, i) => ({
+          label: sx,
+          backgroundColor: PALETTE[i % PALETTE.length],
+          data: items.map(it => {
+            const subset = rows.filter(r => r.demo.sexo === sx);
+            let top = 0, total = 0;
+            subset.forEach(r => { const lvl = r.mental[it.id]; if (lvl === -1) return; total++; if (lvl >= opts.length - 2) top++; });
+            return total ? (top / total) * 100 : 0;
+          })
+        }))
+      },
+      options: {
+        ...CHART_DEFAULTS,
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const v = ctx.parsed.y;
+                const cnt = chSaudeSexoCounts[ctx.datasetIndex][ctx.dataIndex];
+                return `${ctx.dataset.label}: ${fmtPct(v)} (${cnt.top}/${cnt.total})`;
+              }
+            }
+          }
+        },
+        scales: { y: { max: 100, ticks: { callback: v => v + "%" } }, x: { ticks: { font: { size: 9.5 } } } }
+      }
+    });
+
+    // Detalhamento por item (stacked %)
+    function drawSaudeItem() {
+      const itemId = $("#saudeItemSelect").value;
+      const itemDef = items.find(it => it.id === itemId);
+      if (!itemDef) return;
+      // Distribuição para cada categoria (item único, mas mantemos o padrão de barras horizontais empilhadas)
+      const resolved = State.resolved.mental[itemId];
+      if (!resolved || !resolved.header) {
+        // Fallback: usa distribuição via _raw
+      }
+      // Distribuição a partir de r.mental[id] (nível 0-4)
+      const counts = opts.map(() => 0);
+      let total = 0;
+      rows.forEach(r => {
+        const lvl = r.mental[itemId];
+        if (lvl === -1 || lvl === null || lvl === undefined) return;
+        counts[lvl]++; total++;
+      });
+      const pctArr = counts.map(c => total ? (c / total) * 100 : 0);
+      const datasets = opts.map((opt, i) => ({
+        label: opt,
+        data: [pctArr[i]],
+        backgroundColor: likertColor(opt, opts.length, i),
+        counts: [counts[i]]
+      }));
+      makeChart("chSaudeItems", {
+        type: "bar",
+        data: { labels: [itemDef.label], datasets },
+        options: {
+          ...CHART_DEFAULTS,
+          indexAxis: "y",
+          scales: { x: { stacked: true, max: 100, ticks: { callback: v => v + "%" } }, y: { stacked: true, ticks: { font: { size: 11 } } } },
+          plugins: {
+            legend: { position: "bottom" },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const v = ctx.parsed.x;
+                  const c = ctx.dataset.counts[ctx.dataIndex] || 0;
+                  return `${ctx.dataset.label}: ${fmtPct(v)} (${c})`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+    $("#saudeItemSelect").addEventListener("change", drawSaudeItem);
+    drawSaudeItem();
+
+    // Tooltip para chAmigos (total): mostra % e valor absoluto
+    makeChart("chAmigos", {
+      type: "bar",
+      data: { labels: CONFIG.SCALES.friends, datasets: [{ data: friendsDist.pct, backgroundColor: PALETTE.slice(0,4), borderRadius: 5, counts: friendsDist.counts }] },
+      options: {
+        ...CHART_DEFAULTS,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const v = ctx.parsed.y;
+                const c = ctx.dataset.counts[ctx.dataIndex] || 0;
+                return `${ctx.label}: ${fmtPct(v)} (${c})`;
+              }
+            }
+          }
+        },
+        scales: { y: { max: 100, ticks: { callback: v => v + "%" } } }
+      }
+    });
+
+    // Novo gráfico: Amigos por sexo (agrupado, % dentro de cada sexo)
+    const amigosSexoDatasets = sexos.map((sx, i) => {
+      const ad = amigosPorSexo.find(a => a.sexo === sx);
+      return {
+        label: sx,
+        data: ad.dist.pct,
+        backgroundColor: PALETTE[i % PALETTE.length],
+        borderRadius: 4,
+        counts: ad.dist.counts
+      };
+    });
+    makeChart("chAmigosSexo", {
+      type: "bar",
+      data: { labels: CONFIG.SCALES.friends, datasets: amigosSexoDatasets },
+      options: {
+        ...CHART_DEFAULTS,
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const v = ctx.parsed.y;
+                const c = ctx.dataset.counts[ctx.dataIndex] || 0;
+                return `${ctx.dataset.label}: ${fmtPct(v)} (${c})`;
+              }
+            }
+          }
+        },
+        scales: { y: { max: 100, ticks: { callback: v => v + "%" } } }
+      }
+    });
+
+    // Tooltip para chSatisf (total): mostra % e valor absoluto
+    const satisfCounts = new Array(11).fill(0);
+    satisfVida.forEach(v => satisfCounts[v]++);
+    const satisfTotal = satisfVida.length;
+    makeChart("chSatisf", {
+      type: "bar",
+      data: { labels: CONFIG.SCALES.scale0_10, datasets: [{ data: satisfCounts.map(c => satisfTotal ? (c / satisfTotal) * 100 : 0), backgroundColor: PALETTE[1], borderRadius: 4, counts: satisfCounts }] },
+      options: {
+        ...CHART_DEFAULTS,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const v = ctx.parsed.y;
+                const c = ctx.dataset.counts[ctx.dataIndex] || 0;
+                return `${ctx.label}: ${fmtPct(v)} (${c})`;
+              }
+            }
+          }
+        },
+        scales: { y: { max: 100, ticks: { callback: v => v + "%" } } }
+      }
+    });
+
+    // Novo gráfico: Satisfação média com a vida por sexo (barras com média e intervalo)
+    const satisfSexoCounts = sexos.map(sx => {
+      const subset = rows.filter(r => r.demo.sexo === sx);
+      const counts = new Array(11).fill(0);
+      subset.forEach(r => { const v = r.standalone.satisfacaoVida; if (v !== -1 && v >= 0 && v <= 10) counts[v]++; });
+      return { sx, counts };
+    });
+    makeChart("chSatisfSexo", {
+      type: "bar",
+      data: {
+        labels: CONFIG.SCALES.scale0_10,
+        datasets: satisfSexoCounts.map((s, i) => {
+          const total = s.counts.reduce((a, b) => a + b, 0);
+          return {
+            label: s.sx,
+            data: s.counts.map(c => total ? (c / total) * 100 : 0),
+            backgroundColor: PALETTE[i % PALETTE.length],
+            borderRadius: 4,
+            counts: s.counts,
+            total
+          };
+        })
+      },
+      options: {
+        ...CHART_DEFAULTS,
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const v = ctx.parsed.y;
+                const c = ctx.dataset.counts[ctx.dataIndex] || 0;
+                return `${ctx.dataset.label}: ${fmtPct(v)} (${c})`;
+              }
+            }
+          }
+        },
+        scales: { y: { max: 100, ticks: { callback: v => v + "%" } } }
+      }
+    });
+  }
+
+  function distributionForStandalone(rows, key) {
+    const opts = CONFIG.SCALES[CONFIG.STANDALONE_ITEMS[key].scale];
+    const counts = opts.map(() => 0);
+    let total = 0;
+    rows.forEach(r => { const lvl = r.standalone[key]; if (lvl === -1) return; counts[lvl]++; total++; });
+    return { counts, total, pct: counts.map(c => total ? (c / total) * 100 : 0) };
+  }
+
+  // ---------------------------------------------------------------------
+  // HÁBITOS DE VIDA
+  // ---------------------------------------------------------------------
+  const SLEEP_MIDPOINT = [3.5, 5, 6, 7, 8, 9, 10.5];
+  const SCREEN_MIDPOINT = [0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5];
+  function renderHabitos(rows) {
+    const el = $("#view-habitos");
+    const modDist = distributionForStandalone(rows, "atvModerada");
+    const intDist = distributionForStandalone(rows, "atvIntensa");
+    const screenDist = distributionForStandalone(rows, "tempoTela");
+    const sleepDist = distributionForStandalone(rows, "sono");
+
+    const modDays = rows.map(r => r.standalone.atvModerada).filter(v => v !== -1);
+    const intDays = rows.map(r => r.standalone.atvIntensa).filter(v => v !== -1);
+    const screenVals = rows.map(r => r.standalone.tempoTela).filter(v => v !== -1).map(v => SCREEN_MIDPOINT[v]);
+    const sleepVals = rows.map(r => r.standalone.sono).filter(v => v !== -1).map(v => SLEEP_MIDPOINT[v]);
+
+    const modMean = Engine.mean(modDays), intMean = Engine.mean(intDays);
+    const screenMean = Engine.mean(screenVals), sleepMean = Engine.mean(sleepVals);
+    const pctScreenHigh = screenVals.length ? (screenVals.filter(v => v > 2).length / screenVals.length) * 100 : null;
+    const pctSleepOk = sleepVals.length ? (sleepVals.filter(v => v >= 8).length / sleepVals.length) * 100 : null;
+    const pctCafeDiario = (() => {
+      const c = catDist(rows, "cafe");
+      const total = Object.values(c).reduce((a, b) => a + b, 0);
+      const sim = Object.entries(c).filter(([k]) => /todos os dias/i.test(k)).reduce((a, [, v]) => a + v, 0);
+      return total ? (sim / total) * 100 : null;
+    })();
+
+    // Tooltip padrão para gráficos de valores percentuais: "frequência percentual (frequência acumulada)".
+    // Ex.: "29,00% (820)". Usa ctx.raw para obter o percentual real, independentemente da orientação do gráfico.
+    const tooltipAbsPct = (counts) => ({
+      callbacks: {
+        label: (ctx) => {
+          const v = ctx.raw; // valor percentual exibido no gráfico
+          const c = counts ? (counts[ctx.dataIndex] || 0) : 0;
+          const vStr = (v !== null && v !== undefined) ? fmtPct(v) : "—";
+          return `${ctx.label}: ${vStr} (${c})`;
+        }
+      }
+    });
+
+    // Síntese dos dados
+    const fmtN = (v) => (v === null || v === undefined || isNaN(v)) ? "—" : v.toFixed(2);
+    const synHab = `
+      <div class="card" style="margin-top:20px;background:#f8fafc;border-left:4px solid var(--brand)">
+        <h3>Síntese dos dados</h3>
+        <p style="font-size:13.5px;line-height:1.65;color:var(--ink);margin:8px 0 0">
+          Os indicadores de hábitos de vida revelaram padrões de comportamento que demandam atenção em saúde pública escolar. A atividade física moderada foi praticada, em média, <b>${fmtN(modMean)}</b> dias por semana (n = ${modDays.length}), valor aquém da recomendação da Organização Mundial da Saúde (OMS, 2020) de prática diária (7 dias/semana); já a atividade física intensa atingiu média de <b>${fmtN(intMean)}</b> dias por semana (n = ${intDays.length}), igualmente abaixo do preconizado para a faixa etária (≥ 3 dias/semana com ≥ 20 minutos contínuos). O tempo médio de tela, computado excluindo-se o período escolar, foi de <b>${fmtN(screenMean)}</b> horas por dia (n = ${screenVals.length}), com ${fmtPct(pctScreenHigh)} dos respondentes ultrapassando o limite de 2 horas diárias preconizado pela Sociedade Brasileira de Pediatria (SBP, 2022). Em relação ao sono, a duração média em noites que antecedem dia letivo foi de <b>${fmtN(sleepMean)}</b> horas (n = ${sleepVals.length}), com apenas ${fmtPct(pctSleepOk)} dos estudantes alcançando as 8 horas mínimas recomendadas para adolescentes pela Sociedade Brasileira de Pediatria, 2021. A frequência do café da manhã, indicador reconhecido de qualidade da alimentação e desempenho escolar, atingiu patamar de consumo diário em ${fmtPct(pctCafeDiario)} da amostra. Por fim, a supervisão parental do uso de telas, avaliada por meio de quatro itens dicotômicos, evidenciou heterogeneidade entre as dimensões avaliadas, sugerindo que estratégias familiares de regulação variam conforme o tipo de regra (tempo, dias da semana, refeições e horário de dormir). Em conjunto, os achados deste bloco delineiam um perfil de risco cardiometabólico e cognitivo que justifica intervenções multicomponente envolvendo família, escola e serviços de saúde, com prioridade para a redução do tempo de tela, o aumento da prática de atividade física e a promoção de hábitos saudáveis de sono e alimentação.
+        </p>
+      </div>
+    `;
+
+    el.innerHTML = `
+      <div class="section-title">Atividade física, sono e tempo de tela</div>
+      <div class="section-desc">Baseado em itens do PISA (OCDE, 2022), PeNSE (IBGE, 2022) e GSHS/WHO (2025).</div>
+      <div class="grid cols-4">
+        ${kpiCard("Atividade física moderada (dias/semana)", fmt1(modMean), "recomendação: diariamente (7 dias)")}
+        ${kpiCard("Atividade física intensa (dias/semana)", fmt1(intMean), "≥20 min contínuos")}
+        ${kpiCard("Tempo de tela (h/dia, fora da escola)", fmt1(screenMean), fmtPct(pctScreenHigh) + " acima de 2h/dia")}
+        ${kpiCard("Sono em noite letiva (h)", fmt1(sleepMean), fmtPct(pctSleepOk) + " dormem 8h ou mais")}
+      </div>
+      <div class="grid cols-2" style="margin-top:16px">
+        <div class="card"><h3>Atividade física moderada (dias/semana)</h3><div class="chart-wrap"><canvas id="chAtvMod"></canvas></div></div>
+        <div class="card"><h3>Atividade física intensa (dias/semana)</h3><div class="chart-wrap"><canvas id="chAtvInt"></canvas></div></div>
+        <div class="card"><h3>Tempo de tela por dia (fora da escola)</h3><div class="chart-wrap"><canvas id="chTela"></canvas></div></div>
+        <div class="card"><h3>Horas de sono em noite letiva</h3><div class="chart-wrap"><canvas id="chSono"></canvas></div></div>
+      </div>
+      <div class="section-title" style="margin-top:28px">Café da manhã e supervisão parental de telas</div>
+      <div class="grid cols-2">
+        <div class="card"><h3>Frequência do café da manhã</h3><div class="chart-wrap"><canvas id="chCafeHab"></canvas></div></div>
+        <div class="card">${indexCardHtml("supervisao_telas", rows)}<div class="chart-wrap short" style="margin-top:10px"><canvas id="chSupervisao"></canvas></div></div>
+      </div>
+
+      ${synHab}
+
+      <div class="footer-note">Fonte: PISA (OCDE, 2022), PeNSE (IBGE, 2022), GSHS (WHO, 2025) e SBP (2022).</div>
+    `;
+
+    makeChart("chAtvMod", {
+      type: "bar",
+      data: { labels: CONFIG.SCALES.days0_7, datasets: [{ data: modDist.pct, backgroundColor: PALETTE[1], borderRadius: 4, counts: modDist.counts }] },
+      options: { ...CHART_DEFAULTS, plugins: { legend: { display: false }, tooltip: tooltipAbsPct(modDist.counts) }, scales: { y: { max: 100, ticks: { callback: v => v + "%" } } } }
+    });
+    makeChart("chAtvInt", {
+      type: "bar",
+      data: { labels: CONFIG.SCALES.days0_7, datasets: [{ data: intDist.pct, backgroundColor: PALETTE[3], borderRadius: 4, counts: intDist.counts }] },
+      options: { ...CHART_DEFAULTS, plugins: { legend: { display: false }, tooltip: tooltipAbsPct(intDist.counts) }, scales: { y: { max: 100, ticks: { callback: v => v + "%" } } } }
+    });
+    makeChart("chTela", {
+      type: "bar",
+      data: { labels: CONFIG.SCALES.screen.map(s => truncate(s, 29)), datasets: [{ data: screenDist.pct, backgroundColor: PALETTE[4], borderRadius: 4, counts: screenDist.counts }] },
+      options: { ...CHART_DEFAULTS, indexAxis: "y", plugins: { legend: { display: false }, tooltip: tooltipAbsPct(screenDist.counts) }, scales: { x: { max: 100, ticks: { callback: v => v + "%" } }, y: { ticks: { font: { size: 10 } } } } }
+    });
+    makeChart("chSono", {
+      type: "bar",
+      data: { labels: CONFIG.SCALES.sleep, datasets: [{ data: sleepDist.pct, backgroundColor: PALETTE[5], borderRadius: 4, counts: sleepDist.counts }] },
+      options: { ...CHART_DEFAULTS, plugins: { legend: { display: false }, tooltip: tooltipAbsPct(sleepDist.counts) }, scales: { y: { max: 100, ticks: { callback: v => v + "%" } } } }
+    });
+
+    // Café da manhã: barCategorical já foi atualizado para mostrar valor absoluto + percentual (2 casas)
+    barCategorical("chCafeHab", rows, "cafe", "bar", true);
+
+    const supItems = State.resolved.indices["supervisao_telas"];
+    const supShares = supItems.map(c => c.header ? Engine.topBoxShare(rows, c.header, CONFIG.SCALES.simnao, 1) : null);
+    // Contagens absolutas de "Sim" para tooltip
+    const supCounts = supItems.map(c => {
+      if (!c.header) return null;
+      const d = Engine.distribution(rows, c.header, CONFIG.SCALES.simnao);
+      return d.counts[1] || 0; // índice 1 = "Sim"
+    });
+    // Contagens totais
+    const supTotals = supItems.map(c => {
+      if (!c.header) return null;
+      const d = Engine.distribution(rows, c.header, CONFIG.SCALES.simnao);
+      return d.total;
+    });
+    makeChart("chSupervisao", {
+      type: "bar",
+      data: {
+        labels: supItems.map(c => quebrarTexto((c.code ? c.code + " – " : "") + c.label, 45)),
+        datasets: [{
+          label: "% 'Sim'",
+          data: supShares,
+          backgroundColor: PALETTE[0],
+          borderRadius: 4,
+          counts: supCounts,
+          totals: supTotals
+        }]
+      },
+      options: {
+        ...CHART_DEFAULTS,
+        indexAxis: "y",
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const v = ctx.parsed.x;
+                const c = ctx.dataset.counts ? (ctx.dataset.counts[ctx.dataIndex] || 0) : 0;
+                const t = ctx.dataset.totals ? (ctx.dataset.totals[ctx.dataIndex] || 0) : 0;
+                return `${ctx.dataset.label}: ${fmtPct(v)} (${c}/${t})`;
+              }
+            }
+          }
+        },
+        layout: { padding: { left: 10 } },
+        scales: {
+          x: { max: 100, ticks: { callback: v => v + "%" } },
+          y: { ticks: { font: { size: 10 }, autoSkip: false } }
+        }
+      }
+    });
+  }
+
+  function quebrarTexto(texto, limite = 40) {
+  const palavras = texto.split(" ");
+  const linhas = [];
+  let linhaAtual = "";
+
+  palavras.forEach(palavra => {
+    if ((linhaAtual + " " + palavra).trim().length > limite) {
+      linhas.push(linhaAtual.trim());
+      linhaAtual = palavra;
+    } else {
+      linhaAtual = (linhaAtual + " " + palavra).trim();
+    }
+     });
+    if (linhaAtual) linhas.push(linhaAtual);
+  return linhas;
+  }
+
+  // ---------------------------------------------------------------------
+  // FAMÍLIA
+  // ---------------------------------------------------------------------
+  function renderFamilia(rows) {
+    const el = $("#view-familia");
+    el.innerHTML = `
+      <div class="section-title">Suporte familiar e conexão social com os pais <span class="tag">PISA, OCDE 2022</span></div>
+      <div class="grid cols-2">
+        ${indexCardHtml("suporte_familiar", rows)}
+        ${indexCardHtml("conexao_pais", rows)}
+      </div>
+      <div class="grid cols-2" style="margin-top:16px">
+        <div class="card"><h3>Suporte Familiar para Aprendizagem — por item</h3><div class="chart-wrap tall" style="height:340px"><canvas id="chSuporteItems"></canvas></div></div>
+        <div class="card"><h3>Conexão Social com os Pais — por item</h3><div class="chart-wrap tall" style="height:340px"><canvas id="chConexaoItems"></canvas></div></div>
+      </div>
+    `;
+    itemBreakdownChart("chSuporteItems", rows, "suporte_familiar");
+    itemBreakdownChart("chConexaoItems", rows, "conexao_pais");
+  }
+
+  // ---------------------------------------------------------------------
+  // COMPARATIVO POR ESCOLA
+  // ---------------------------------------------------------------------
+  const ALL_COMPARABLE_INDICES = [
+    "rel_professor_estudante", "rel_estudante_estudante", "seguranca_escolar", "justica_clareza_regras",
+    "engajamento_escolar_rede", "bullying_escolar", "engaj_cognitivo_comportamental", "engaj_emocional",
+    "pertencimento_escolar", "mentalidade_crescimento", "suporte_familiar", "conexao_pais", "supervisao_telas",
+    "sofrimento_psiquico"
+  ];
+  function renderEscolas(rows) {
+    const el = $("#view-escolas");
+    el.innerHTML = `
+      <div class="section-title">Comparativo entre unidades de ensino</div>
+      <div class="section-desc">Ranking das escolas (na seleção atual de filtros) segundo o índice escolhido. A linha tracejada indica a média da rede.</div>
+      <div class="card">
+        <div class="school-select-row">
+          <label style="font-weight:600;font-size:13px;color:var(--muted)">Índice:</label>
+          <select id="escolaIdxSelect">${ALL_COMPARABLE_INDICES.map(id => `<option value="${id}">${defOf(id).label}</option>`).join("")}</select>
+          <label style="font-weight:600;font-size:13px;color:var(--muted);margin-left:10px;display:none">Mín. respondentes:</label>
+          <select id="escolaMinN" style="display:none"><option value="1">1</option><option value="5" selected>5</option><option value="10">10</option><option value="20">20</option></select>
+        </div>
+        <div id="escolaRankWrap"></div>
+      </div>
+
+      <div class="section-title" style="margin-top:28px">Perfil detalhado de uma escola</div>
+      <div class="card">
+        <div class="school-select-row"><select id="escolaDetailSelect"></select></div>
+        <div class="grid cols-2">
+          <div class="chart-wrap tall"><canvas id="chEscolaRadar"></canvas></div>
+          <div id="escolaDetailTable"></div>
+        </div>
+      </div>
+    `;
+    const schools = uniqueSorted(rows, "escola");
+    $("#escolaDetailSelect").innerHTML = schools.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
+
+    function drawRanking() {
+      const idxId = $("#escolaIdxSelect").value;
+      const minN = parseInt($("#escolaMinN").value, 10);
+      const def = defOf(idxId);
+      const bySchool = {};
+      rows.forEach(r => {
+        const s = r.demo.escola; if (!s) return;
+        (bySchool[s] = bySchool[s] || []).push(r);
+      });
+      let arr = Object.entries(bySchool).map(([name, rs]) => ({ name, n: rs.length, mean: meanOf(rs, idxId) }))
+        .filter(x => x.n >= minN && x.mean !== null);
+      arr.sort((a, b) => def.direction === "risk" ? a.mean - b.mean : b.mean - a.mean);
+      const netMean = meanOf(rows, idxId);
+      $("#escolaRankWrap").innerHTML = (arr.length ? arr.map(x => rankBarHtml(x.name + ` (n=${x.n})`, x.mean, 100, x.mean, def.direction)).join("") : emptyNote())
+        + (netMean !== null ? `<div class="sub" style="margin-top:8px">Média da rede na seleção atual: <b>${fmt1(netMean)}</b></div>` : "");
+    }
+    $("#escolaIdxSelect").addEventListener("change", drawRanking);
+    $("#escolaMinN").addEventListener("change", drawRanking);
+    drawRanking();
+
+    function drawDetail() {
+      const school = $("#escolaDetailSelect").value;
+      const subset = rows.filter(r => r.demo.escola === school);
+      const radarIds = ["rel_professor_estudante", "rel_estudante_estudante", "seguranca_escolar", "justica_clareza_regras", "engajamento_escolar_rede"];
+      makeChart("chEscolaRadar", {
+        type: "radar",
+        data: {
+          labels: radarIds.map(id => indexDef(id).short),
+          datasets: [
+            { label: school, data: radarIds.map(id => indexMean(subset, id)), borderColor: PALETTE[0], backgroundColor: "rgba(36,84,255,.18)" },
+            { label: "Rede (seleção atual)", data: radarIds.map(id => indexMean(rows, id)), borderColor: "#9aa5b8", backgroundColor: "rgba(154,165,184,.12)", borderDash: [5, 4] }
+          ]
+        },
+        options: { ...CHART_DEFAULTS, scales: { r: { min: 0, max: 100, ticks: { stepSize: 25 } } } }
+      });
+      const rowsHtml = ALL_COMPARABLE_INDICES.map(id => {
+        const def = defOf(id);
+        const v = meanOf(subset, id);
+        const net = meanOf(rows, id);
+        const diff = (v !== null && net !== null) ? v - net : null;
+        return `<tr><td>${def.label}</td><td>${fmt1(v)}</td><td>${fmt1(net)}</td><td style="color:${diff===null?'':(diff>=0? (def.direction==='risk'?'var(--bad)':'var(--good)') : (def.direction==='risk'?'var(--good)':'var(--bad)'))}">${diff===null?'—':(diff>=0?'+':'')+diff.toFixed(1)}</td></tr>`;
+      }).join("");
+      $("#escolaDetailTable").innerHTML = `
+        <table class="simple">
+          <thead><tr><th>Índice</th><th>Escola</th><th>Rede</th><th>Diferença</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+        <div class="sub" style="margin-top:6px">n=${subset.length} respondentes nesta escola (seleção atual)</div>
+      `;
+    }
+    $("#escolaDetailSelect").addEventListener("change", drawDetail);
+    if (schools.length) drawDetail();
+    else { $("#chEscolaRadar").parentElement.innerHTML = emptyNote(); $("#escolaDetailTable").innerHTML = ""; }
+  }
+
+  // ---------------------------------------------------------------------
+  // CORRELAÇÕES
+  // ---------------------------------------------------------------------
+  const CORR_IDS = [
+    "rel_professor_estudante", "rel_estudante_estudante", "seguranca_escolar", "justica_clareza_regras",
+    "engajamento_escolar_rede", "bullying_escolar", "engaj_cognitivo_comportamental", "engaj_emocional",
+    "pertencimento_escolar", "mentalidade_crescimento", "suporte_familiar", "conexao_pais",
+    "sofrimento_psiquico"
+  ];
+  function renderCorrelacoes(rows) {
+    const el = $("#view-correlacoes");
+    el.innerHTML = `
+      <div class="section-title">Correlações entre dimensões</div>
+      <div class="section-desc">Coeficiente de correlação de Spearman (ρ) entre os índices, calculado ao nível do respondente na seleção atual de filtros. Trata-se de estatística não paramétrica, apropriada para dados ordinais e para relações monotônicas não necessariamente lineares. Valores próximos de 1 (azul) indicam associação positiva forte; próximos de -1 (vermelho), associação negativa forte.</div>
+      <div class="card heatmap-scroll"><div id="corrHeatmap"></div></div>
+
+      <div class="section-title" style="margin-top:28px">Dispersão entre duas dimensões</div>
+      <div class="card">
+        <div class="school-select-row">
+          <label style="font-weight:600;font-size:13px;color:var(--muted)">Eixo X:</label>
+          <select id="corrX">${CORR_IDS.map(id => `<option value="${id}">${defOf(id).label}</option>`).join("")}</select>
+          <label style="font-weight:600;font-size:13px;color:var(--muted);margin-left:10px">Eixo Y:</label>
+          <select id="corrY">${CORR_IDS.map((id, i) => `<option value="${id}" ${i===1?"selected":""}>${defOf(id).label}</option>`).join("")}</select>
+        </div>
+        <div id="corrRLabel" class="sub"></div>
+        <div class="chart-wrap tall"><canvas id="chScatter"></canvas></div>
+      </div>
+
+      <div class="footer-note">Método: correlação por postos de Spearman (ρ), com correção para empates. O índice Saúde Mental (Sofrimento Psíquico) é composto pelos cinco indicadores PeNSE normalizados (0-100).</div>
+    `;
+
+    // matriz de dados por respondente (apenas linhas com ambos os índices computados são usadas par a par)
+    const seriesById = {};
+    CORR_IDS.forEach(id => { seriesById[id] = rows.map(r => rowScore(r, id)); });
+
+    function pairSeries(idA, idB) {
+      const a = [], b = [];
+      for (let i = 0; i < rows.length; i++) {
+        const va = seriesById[idA][i], vb = seriesById[idB][i];
+        if (va !== null && vb !== null && va !== undefined && vb !== undefined) { a.push(va); b.push(vb); }
+      }
+      return [a, b];
+    }
+
+    // heatmap (Spearman)
+    let html = '<table class="heatmap-table"><thead><tr><th></th>' + CORR_IDS.map(id => `<th>${defOf(id).short}</th>`).join("") + "</tr></thead><tbody>";
+    CORR_IDS.forEach(idA => {
+      html += `<tr><th>${defOf(idA).short}</th>`;
+      CORR_IDS.forEach(idB => {
+        const [a, b] = pairSeries(idA, idB);
+        const r = idA === idB ? 1 : Engine.spearman(a, b);
+        const bg = r === null ? "#eef1f6" : heatColor(r);
+        html += `<td><div class="heatmap-cell" style="background:${bg}" title="${defOf(idA).label} × ${defOf(idB).label}: ρ=${r===null?'—':r.toFixed(2)}">${r===null?'—':r.toFixed(2)}</div></td>`;
+      });
+      html += "</tr>";
+    });
+    html += "</tbody></table>";
+    $("#corrHeatmap").innerHTML = html;
+
+    function drawScatter() {
+      const idA = $("#corrX").value, idB = $("#corrY").value;
+      const [a, b] = pairSeries(idA, idB);
+      const r = Engine.spearman(a, b);
+      $("#corrRLabel").textContent = `ρ de Spearman = ${r === null ? "—" : r.toFixed(3)} · n = ${a.length}`;
+      const points = a.map((v, i) => ({ x: v, y: b[i] }));
+      makeChart("chScatter", {
+        type: "scatter",
+        data: { datasets: [{ label: `${defOf(idA).short} × ${defOf(idB).short}`, data: points, backgroundColor: "rgba(36,84,255,.45)" }] },
+        options: { ...CHART_DEFAULTS, plugins: { legend: { display: false } }, scales: { x: { min: 0, max: 100, title: { display: true, text: defOf(idA).label } }, y: { min: 0, max: 100, title: { display: true, text: defOf(idB).label } } } }
+      });
+    }
+    $("#corrX").addEventListener("change", drawScatter);
+    $("#corrY").addEventListener("change", drawScatter);
+    drawScatter();
+  }
+
+  // ---------------------------------------------------------------------
+  // DIFERENÇA DE MÉDIAS (testes não paramétricos)
+  // ---------------------------------------------------------------------
+  // Índices analisados (inclui o índice virtual Saúde Mental (Sofrimento Psíquico))
+  const DIFMED_INDICES = [
+    "rel_professor_estudante", "rel_estudante_estudante", "seguranca_escolar", "justica_clareza_regras",
+    "engajamento_escolar_rede", "bullying_escolar", "engaj_cognitivo_comportamental", "engaj_emocional",
+    "pertencimento_escolar", "mentalidade_crescimento", "suporte_familiar", "conexao_pais",
+    "supervisao_telas", "sofrimento_psiquico"
+  ];
+  // Fatores sociodemográficos
+  const DIFMED_FACTORS = [
+    { key: "sexo",            label: "Sexo" },
+    { key: "raca",            label: "Cor/Raça" },
+    { key: "serie",           label: "Ano Escolar" },
+    { key: "turno",           label: "Turno" },
+    { key: "retencao",        label: "Repetiu de ano" },
+    { key: "maeEscolaridade", label: "Escolaridade da mãe" },
+    { key: "tempoMatricula",  label: "Tempo de matrícula" }
+  ];
+
+  function renderDiferencaMedias(rows) {
+    const el = $("#view-diferenca_medias");
+
+    el.innerHTML = `
+      <div class="section-title">Diferença de medianas por grupo <span class="tag">testes não paramétricos</span></div>
+      <div class="section-desc">
+        Compara a distribuição de cada índice entre os grupos definidos pelas variáveis sociodemográficas. Para fatores com 2 grupos, aplica-se o <b>teste U de Mann-Whitney</b>; para fatores com 3 ou mais grupos, o <b>teste H de Kruskal-Wallis</b>. O tamanho de efeito é <b>r = |Z|/√N</b> (Mann-Whitney) ou <b>ε² = (H − k + 1)/(N − k)</b> (Kruskal-Wallis). Os <i>p</i>-valores são ajustados por <b>Bonferroni</b> em razão do número de fatores testados para cada índice.
+      </div>
+      <div class="card">
+        <div class="school-select-row">
+          <label style="font-weight:600;font-size:13px;color:var(--muted)">Índice:</label>
+          <select id="difmedIdxSelect">${DIFMED_INDICES.map(id => `<option value="${id}">${defOf(id).label}</option>`).join("")}</select>
+        </div>
+      </div>
+      <div id="difmedTables" style="margin-top:16px"></div>
+      <div id="difmedFootnotes" style="margin-top:24px"></div>
+      <div id="difmedSynthesis" style="margin-top:16px"></div>
+    `;
+
+    function fmtP(v) {
+      if (v === null || v === undefined || isNaN(v)) return "—";
+      if (v < 0.001) return "&lt; 0,001";
+      return v.toFixed(3);
+    }
+    function fmtStar(p) {
+      if (p === null || p === undefined || isNaN(p)) return "";
+      if (p < 0.001) return "***";
+      if (p < 0.01) return "**";
+      if (p < 0.05) return "*";
+      return "";
+    }
+    function fmtN2(v) { return (v === null || v === undefined || isNaN(v)) ? "—" : v.toFixed(2); }
+
+    function computeForIndex(idxId) {
+      // Calcula p-valor bruto para cada fator, depois aplica Bonferroni (n_factors)
+      const rawResults = DIFMED_FACTORS.map(factor => {
+        // Agrupa respondentes por categoria do fator
+        const groups = {}; // cat -> array de scores
+        rows.forEach(r => {
+          const v = r.demo[factor.key];
+          if (v === null || v === undefined || v === "") return;
+          const s = rowScore(r, idxId);
+          if (s === null || s === undefined || isNaN(s)) return;
+          if (!groups[v]) groups[v] = [];
+          groups[v].push(s);
+        });
+        const cats = Object.keys(groups);
+        const validGroups = cats.map(c => groups[c]).filter(g => g.length > 0);
+        const k = validGroups.length;
+        const totalN = validGroups.reduce((a, g) => a + g.length, 0);
+
+        let test = null;
+        if (k < 2) {
+          test = { kind: "insufficient", n: totalN, k, message: "Dados insuficientes (menos de 2 grupos)" };
+        } else if (k === 2) {
+          const res = Engine.mannWhitneyU(validGroups[0], validGroups[1]);
+          if (!res) {
+            test = { kind: "error", n: totalN, k, message: "Não foi possível calcular (variância zero)" };
+          } else {
+            test = { kind: "mannwhitney", ...res, n: totalN, k };
+          }
+        } else {
+          const res = Engine.kruskalWallis(validGroups);
+          if (!res) {
+            test = { kind: "error", n: totalN, k, message: "Não foi possível calcular (variância zero)" };
+          } else {
+            test = { kind: "kruskalwallis", ...res, n: totalN, k };
+          }
+        }
+
+        // Estatísticas descritivas por categoria
+        const catStats = cats.map(c => {
+          const arr = groups[c];
+          if (!arr || !arr.length) return { cat: c, n: 0, median: null, q1: null, q3: null, iqr: null };
+          const sorted = [...arr].sort((a, b) => a - b);
+          const q1 = Engine.quantile(arr, 0.25);
+          const q3 = Engine.quantile(arr, 0.75);
+          return {
+            cat: c,
+            n: arr.length,
+            median: Engine.median(arr),
+            q1, q3,
+            iqr: q3 - q1
+          };
+        }).sort((a, b) => b.n - a.n);
+
+        return { factor, test, catStats, n: totalN };
+      });
+
+      // Número de fatores testados = N de comparações (para Bonferroni)
+      const m = rawResults.filter(r => r.test && r.test.p !== undefined && r.test.p !== null).length;
+      const bonferroniM = Math.max(1, m);
+
+      // Aplica Bonferroni: p_adj = min(p * m, 1)
+      rawResults.forEach(r => {
+        if (r.test && r.test.p !== undefined && r.test.p !== null) {
+          r.test.p_adj = Math.min(r.test.p * bonferroniM, 1);
+        }
+      });
+
+      return { idxId, results: rawResults, bonferroniM };
+    }
+
+    function renderTable(result, bonferroniM) {
+      const { factor, test, catStats, n } = result;
+      const def = defOf(result.idxId);
+      const isTwoGroup = test.k === 2;
+      const statCol = isTwoGroup ? "U" : "H";
+      const effectCol = isTwoGroup ? "r" : "ε²";
+      const testLabel = isTwoGroup ? "Teste U de Mann-Whitney" : "Teste H de Kruskal-Wallis";
+
+      const rowsHtml = catStats.map((cs, i) => {
+        const isFirst = i === 0;
+        return `<tr>
+          <td>${escapeHtml(cs.cat)}</td>
+          <td style="text-align:center">${cs.n}</td>
+          <td style="text-align:center">${fmtN2(cs.median)}</td>
+          <td style="text-align:center">${fmtN2(cs.q1)} – ${fmtN2(cs.q3)}</td>
+          <td style="text-align:center">${isFirst ? (test.kind === "mannwhitney" ? fmtN2(test.U) : (test.kind === "kruskalwallis" ? fmtN2(test.H) : "—")) : ""}</td>
+          <td style="text-align:center">${isFirst ? (test.p_adj !== undefined ? fmtP(test.p_adj) + " " + fmtStar(test.p_adj) : "—") : ""}</td>
+          <td style="text-align:center">${isFirst ? (test.kind === "mannwhitney" ? fmtN2(test.r) : (test.kind === "kruskalwallis" ? fmtN2(test.epsilon2) : "—")) : ""}</td>
+        </tr>`;
+      }).join("");
+
+      const statValue = test.kind === "mannwhitney" ? fmtN2(test.U) : (test.kind === "kruskalwallis" ? fmtN2(test.H) : "—");
+      const pValue = test.p_adj !== undefined ? fmtP(test.p_adj) + " " + fmtStar(test.p_adj) : "—";
+      const effectValue = test.kind === "mannwhitney" ? fmtN2(test.r) : (test.kind === "kruskalwallis" ? fmtN2(test.epsilon2) : "—");
+      const effectInterpretation = (() => {
+        if (test.kind === "mannwhitney") {
+          const r = test.r;
+          if (r === null || r === undefined) return "";
+          if (r < 0.1) return "efeito negligenciável";
+          if (r < 0.3) return "efeito pequeno";
+          if (r < 0.5) return "efeito médio";
+          return "efeito grande";
+        }
+        if (test.kind === "kruskalwallis") {
+          const e = test.epsilon2;
+          if (e === null || e === undefined) return "";
+          if (e < 0.02) return "efeito negligenciável";
+          if (e < 0.13) return "efeito pequeno";
+          if (e < 0.26) return "efeito médio";
+          return "efeito grande";
+        }
+        return "";
+      })();
+
+      const testSummary = test.kind === "insufficient" || test.kind === "error"
+        ? `<div class="sub" style="margin-top:8px;color:var(--muted)">${escapeHtml(test.message)}.</div>`
+        : `<div class="sub" style="margin-top:8px">
+            ${testLabel}: ${statCol} = ${statValue}, <i>p</i><sub>adj</sub> = ${pValue} (Bonferroni, m = ${bonferroniM}), ${effectCol} = ${effectValue} (${effectInterpretation}). n total = ${test.n}.
+           </div>`;
+
+      return `
+        <div class="card" style="margin-bottom:14px">
+          <h3>${factor.label} <span style="color:var(--muted);font-weight:400;font-size:12px">(k = ${test.k || 0}; n = ${n})</span></h3>
+          <table class="simple" style="margin-top:8px">
+            <thead>
+              <tr>
+                <th>Grupo</th>
+                <th style="text-align:center">n</th>
+                <th style="text-align:center">Mediana</th>
+                <th style="text-align:center">IQR (Q1 – Q3)</th>
+                <th style="text-align:center">${statCol}</th>
+                <th style="text-align:center"><i>p</i><sub>adj</sub></th>
+                <th style="text-align:center">${effectCol}</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+          ${testSummary}
+        </div>
+      `;
+    }
+
+    function draw() {
+      const idxId = $("#difmedIdxSelect").value;
+      const def = defOf(idxId);
+      const comp = computeForIndex(idxId);
+      const idxMean = meanOf(rows, idxId);
+      const idxMedian = Engine.median(allScores(rows, idxId));
+
+      // Tabelas (uma por fator)
+      const tablesHtml = comp.results.map(r => renderTable({ ...r, idxId }, comp.bonferroniM)).join("");
+      $("#difmedTables").innerHTML = tablesHtml;
+
+      // Notas de rodapé / interpretação
+      $("#difmedFootnotes").innerHTML = `
+        <div class="card" style="background:#f8fafc;border-left:4px solid var(--warn)">
+          <h3>Notas de interpretação</h3>
+          <ul style="margin:8px 0 0 18px;font-size:12.5px;line-height:1.6;color:var(--ink)">
+            <li><b>Mediana e IQR:</b> por serem baseados em postos, os testes não paramétricos utilizam a mediana e o intervalo interquartil (IQR = Q3 − Q1) como medidas de tendência central e dispersão robustas a outliers.</li>
+            <li><b>Teste U de Mann-Whitney:</b> aplicado quando o fator possui 2 grupos. Avalia a hipótese nula de que as distribuições dos dois grupos são iguais. Estatística de teste <i>U</i> aproximada pela normal com correção de continuidade.</li>
+            <li><b>Teste H de Kruskal-Wallis:</b> aplicado quando o fator possui 3 ou mais grupos. Avalia a hipótese nula de que todas as distribuições são iguais. Estatística <i>H</i> aproximada pela distribuição qui-quadrado com <i>k</i> − 1 graus de liberdade.</li>
+            <li><b>Tamanho de efeito:</b> <i>r</i> = |Z|/√N (Mann-Whitney; Cohen: 0,1 pequeno, 0,3 médio, 0,5 grande) e <i>ε²</i> = (H − k + 1)/(N − k) (Kruskal-Wallis; Tomczak &amp; Tomczak, 2014: 0,02 pequeno, 0,13 médio, 0,26 grande).</li>
+            <li><b>Correção de Bonferroni:</b> os <i>p</i>-valores foram ajustados multiplicando-os pelo número de fatores testados (m = ${comp.bonferroniM}) para controle da taxa de erro tipo I familia. <i>p</i><sub>adj</sub> &lt; 0,05 indica significância estatística após correção.</li>
+            <li><b>Notação:</b> * <i>p</i> &lt; 0,05; ** <i>p</i> &lt; 0,01; *** <i>p</i> &lt; 0,001.</li>
+            <li><b>Direção do índice:</b> ${def.direction === "risk" ? "risco (valores maiores indicam pior desfecho)" : "positivo (valores maiores indicam melhor desfecho)"}.</li>
+          </ul>
+        </div>
+      `;
+
+      // Síntese dos dados (parágrafo analítico)
+      // Identifica fatores com diferença significativa após Bonferroni
+      const sigFactors = comp.results.filter(r => r.test && r.test.p_adj !== undefined && r.test.p_adj < 0.05);
+      const nSig = sigFactors.length;
+      const nTotal = comp.results.length;
+      const strongest = sigFactors.length
+        ? sigFactors.reduce((best, r) => (r.test.p_adj < best.test.p_adj ? r : best))
+        : null;
+      const largestEffect = comp.results
+        .filter(r => r.test && (r.test.r !== undefined || r.test.epsilon2 !== undefined))
+        .reduce((best, r) => {
+          const e = r.test.kind === "mannwhitney" ? r.test.r : r.test.epsilon2;
+          const be = best && best.test ? (best.test.kind === "mannwhitney" ? best.test.r : best.test.epsilon2) : -1;
+          return (e !== null && e !== undefined && (be === null || be === undefined || e > be)) ? r : best;
+        }, null);
+      const effectVal = largestEffect ? (largestEffect.test.kind === "mannwhitney" ? largestEffect.test.r : largestEffect.test.epsilon2) : null;
+
+      const synText = `
+        A análise de diferença de medianas para o índice <b>${def.label}</b> (mediana geral = ${fmtN2(idxMedian)}; média = ${fmtN2(idxMean)}; n = ${allScores(rows, idxId).length}), estratificada por ${nTotal} variáveis sociodemográficas, identificou <b>${nSig} comparação(ões) estatisticamente significativa(s)</b> após correção de Bonferroni para múltiplos testes (m = ${comp.bonferroniM}). ${nSig > 0 ? `O fator com diferença mais robusta foi <b>${strongest.factor.label}</b> (<i>p</i><sub>adj</sub> = ${fmtP(strongest.test.p_adj)}), enquanto o maior tamanho de efeito foi observado para <b>${largestEffect ? largestEffect.factor.label : "—"}</b> (${largestEffect && largestEffect.test.kind === "mannwhitney" ? "r" : "ε²"} = ${fmtN2(effectVal)}), sugerindo que a variável em questão apresenta a maior magnitude de diferença entre grupos, ainda que nem toda diferença estatisticamente significativa traduza-se em efeito substantivo.` : `Nenhuma das comparações atingiu significância estatística após correção de Bonferroni, sugerindo que as distribuições do índice são razoavelmente homogêneas entre os grupos sociodemográficos analisados.`} Cabe ressaltar que a ausência de significância estatística em testes não paramétricos não implica necessariamente equivalência prática entre os grupos, sobretudo em amostras de menor magnitude, onde o poder estatístico pode ser insuficiente para detectar diferenças de tamanho pequeno a moderado. Recomenda-se que os achados deste bloco sejam interpretados em conjunto com as análises descritivas e de correlação apresentadas nas abas precedentes, evitando inferências isoladas baseadas em <i>p</i>-valores sem consideração do tamanho de efeito e da relevância substantiva das diferenças observadas. Para fatores com mais de dois grupos nos quais o teste H de Kruskal-Wallis indicou significância global, recomenda-se a realização de comparações post hoc pareadas (e.g., Dunn's test com correção de Bonferroni) para identificar quais pares de grupos diferem entre si.
+      `;
+      $("#difmedSynthesis").innerHTML = `
+        <div class="card" style="background:#f8fafc;border-left:4px solid var(--brand)">
+          <h3>Síntese dos dados</h3>
+          <p style="font-size:13.5px;line-height:1.65;color:var(--ink);margin:8px 0 0">${synText}</p>
+        </div>
+      `;
+    }
+
+    $("#difmedIdxSelect").addEventListener("change", draw);
+    draw();
+  }
+  function heatColor(r) {
+    // r em [-1,1]: vermelho (negativo) -> branco (0) -> azul (positivo)
+    const t = (r + 1) / 2;
+    const stops = [[224,72,61],[255,255,255],[36,84,255]];
+    let seg, localT;
+    if (t < 0.5) { seg = 0; localT = t / 0.5; } else { seg = 1; localT = (t - 0.5) / 0.5; }
+    const c0 = stops[seg], c1 = stops[seg+1];
+    const rr = Math.round(lerp(c0[0], c1[0], localT));
+    const gg = Math.round(lerp(c0[1], c1[1], localT));
+    const bb = Math.round(lerp(c0[2], c1[2], localT));
+    return `rgb(${rr},${gg},${bb})`;
+  }
+
+  // ---------------------------------------------------------------------
+  // MATRIZ DE RISCOS
+  // ---------------------------------------------------------------------
+
+  // Classificação de risco conforme direction do índice (Opção B)
+  // Positive: 76-100=verde(baixo), 51-75=amarelo(moderado), 26-50=laranja(elevado), 0-25=vermelho(crítico)
+  // Risk:     0-25=verde(baixo), 26-50=amarelo(moderado), 51-75=laranja(elevado), 76-100=vermelho(crítico)
+  function riskLevel(score, direction) {
+    if (score === null || score === undefined || isNaN(score)) return { level: "sem dados", color: "#c9d2e0", css: "", bg: "#eef1f6" };
+    const isPositive = direction !== "risk";
+    let tier;
+    if (isPositive) {
+      if (score >= 76) tier = 0;       // verde - baixo risco
+      else if (score >= 51) tier = 1;  // amarelo - moderado
+      else if (score >= 26) tier = 2;  // laranja - elevado
+      else tier = 3;                   // vermelho - crítico
+    } else {
+      if (score <= 25) tier = 0;       // verde - baixo risco
+      else if (score <= 50) tier = 1;  // amarelo - moderado
+      else if (score <= 75) tier = 2;  // laranja - elevado
+      else tier = 3;                   // vermelho - crítico
+    }
+    const labels = ["Baixo risco", "Risco moderado", "Risco elevado", "Risco crítico"];
+    const colors = ["#1aa06d", "#e0a715", "#ed8936", "#e0483d"];
+    const bgs    = ["#e8f8f0", "#fff6e0", "#fef3e2", "#fdecea"];
+    const css    = ["good", "warn", "warn2", "bad"];
+    return { level: labels[tier], color: colors[tier], css: css[tier], bg: bgs[tier] };
+  }
+
+  // Scoring especial para itens standalone na escala 0-100
+  function scoreAtvModerada(dias) {
+    // Recomendação: 7 dias/semana. Linear: dias/7 * 100
+    if (dias < 0 || dias > 7) return null;
+    return (dias / 7) * 100;
+  }
+  function scoreAtvIntensa(dias) {
+    // Recomendação: 3+ dias/semana. min(dias/3, 1) * 100
+    if (dias < 0 || dias > 7) return null;
+    return Math.min(dias / 3, 1) * 100;
+  }
+  function scoreSono(horas) {
+    // Ponto ótimo: >= 8h. Linear de 4h a 8h. <4h=0%, >=8h=100%
+    if (horas === null || isNaN(horas)) return null;
+    if (horas >= 8) return 100;
+    if (horas <= 4) return 0;
+    return ((horas - 4) / 4) * 100;
+  }
+  // Tempo de tela: mapeamento direto das 9 faixas para score 0-100 (direction: risk)
+  const SCREEN_RISK_SCORE = [10, 25, 40, 60, 75, 85, 92, 97, 100];
+  function scoreTela(levelIdx) {
+    if (levelIdx < 0 || levelIdx >= SCREEN_RISK_SCORE.length) return null;
+    return SCREEN_RISK_SCORE[levelIdx];
+  }
+
+  function renderMatrizRiscos(rows) {
+    const el = $("#view-matriz_riscos");
+
+    // ---- Constrói lista de construtos com score 0-100 e direction ----
+    const groups = [];
+
+    // Helper: score médio de um índice existente
+    function idxScore(id) { return indexMean(rows, id); }
+    function idxDefDir(id) { const d = indexDef(id); return d ? d.direction : "positive"; }
+
+    // CLIMA ESCOLAR
+    groups.push({
+      title: "Clima Escolar",
+      items: [
+        { label: "Relações Professor-Estudante", score: idxScore("rel_professor_estudante"), direction: idxDefDir("rel_professor_estudante"), hint: "↑ Mais alto = menor risco" },
+        { label: "Relações Estudante-Estudante", score: idxScore("rel_estudante_estudante"), direction: idxDefDir("rel_estudante_estudante"), hint: "↑ Mais alto = menor risco" },
+        { label: "Segurança Escolar", score: idxScore("seguranca_escolar"), direction: idxDefDir("seguranca_escolar"), hint: "↑ Mais alto = menor risco" },
+        { label: "Justiça e Clareza das Regras", score: idxScore("justica_clareza_regras"), direction: idxDefDir("justica_clareza_regras"), hint: "↑ Mais alto = menor risco" },
+        { label: "Engajamento Estudantil (coletivo)", score: idxScore("engajamento_escolar_rede"), direction: idxDefDir("engajamento_escolar_rede"), hint: "↑ Mais alto = menor risco" },
+        { label: "Bullying Escolar", score: idxScore("bullying_escolar"), direction: idxDefDir("bullying_escolar"), hint: "↓ Mais baixo = menor risco" }
+      ]
+    });
+
+    // ENGAJAMENTO & PERTENCIMENTO
+    groups.push({
+      title: "Engajamento & Pertencimento",
+      items: [
+        { label: "Engajamento Cognitivo-Comportamental", score: idxScore("engaj_cognitivo_comportamental"), direction: idxDefDir("engaj_cognitivo_comportamental"), hint: "↑ Mais alto = menor risco" },
+        { label: "Engajamento Emocional", score: idxScore("engaj_emocional"), direction: idxDefDir("engaj_emocional"), hint: "↑ Mais alto = menor risco" },
+        { label: "Sentimento de Pertencimento Escolar", score: idxScore("pertencimento_escolar"), direction: idxDefDir("pertencimento_escolar"), hint: "↑ Mais alto = menor risco" },
+        { label: "Mentalidade Fixa (Fixed Mindset)", score: idxScore("mentalidade_crescimento"), direction: idxDefDir("mentalidade_crescimento"), hint: "↓ Mais baixo = menor risco" }
+      ]
+    });
+
+    // RASTREIO DE SAÚDE MENTAL
+    const mentalItems = CONFIG.MENTAL_HEALTH_ITEMS;
+    const mentalOpts = CONFIG.SCALES[CONFIG.MENTAL_HEALTH_SCALE]; // freq5: 5 opções
+    const mentalRows = [];
+    mentalItems.forEach(m => {
+      // Cada item individual: normalizar nível 0-4 para 0-100
+      const scores = rows.map(r => {
+        const lvl = r.mental[m.id];
+        if (lvl === -1 || lvl === undefined || lvl === null) return null;
+        return (lvl / (mentalOpts.length - 1)) * 100;
+      }).filter(v => v !== null);
+      const mean = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
+      mentalRows.push({ label: m.label, score: mean, direction: "risk", hint: "↓ Mais baixo = menor risco", isSubItem: true });
+    });
+    // Saúde Mental (Sofrimento Psíquico): média das 5 médias individuais
+    const mentalScores = mentalRows.map(m => m.score).filter(v => v !== null);
+    const mentalGeral = mentalScores.length ? mentalScores.reduce((a, b) => a + b, 0) / mentalScores.length : null;
+    const mentalGroup = {
+      title: "Rastreio de Saúde Mental",
+      items: [
+        ...mentalRows,
+        { label: "Saúde Mental (Sofrimento Psíquico)", score: mentalGeral, direction: "risk", hint: "↓ Mais baixo = menor risco", isComposite: true }
+      ]
+    };
+    groups.push(mentalGroup);
+
+    // HÁBITOS DE VIDA
+    // ATF1 - Atividade física moderada
+    const atf1Days = rows.map(r => r.standalone.atvModerada).filter(v => v !== -1 && v !== undefined);
+    const atf1Scores = atf1Days.map(d => scoreAtvModerada(d)).filter(v => v !== null);
+    const atf1Mean = atf1Scores.length ? atf1Scores.reduce((a, b) => a + b, 0) / atf1Scores.length : null;
+
+    // ATF2 - Atividade física intensa
+    const atf2Days = rows.map(r => r.standalone.atvIntensa).filter(v => v !== -1 && v !== undefined);
+    const atf2Scores = atf2Days.map(d => scoreAtvIntensa(d)).filter(v => v !== null);
+    const atf2Mean = atf2Scores.length ? atf2Scores.reduce((a, b) => a + b, 0) / atf2Scores.length : null;
+
+    // Sono (HBS1)
+    const sleepLevels = rows.map(r => r.standalone.sono).filter(v => v !== -1 && v !== undefined);
+    const sleepScores = sleepLevels.map(v => scoreSono(SLEEP_MIDPOINT[v])).filter(v => v !== null);
+    const sleepMean = sleepScores.length ? sleepScores.reduce((a, b) => a + b, 0) / sleepScores.length : null;
+
+    // Tempo de tela (TTS1)
+    const screenLevels = rows.map(r => r.standalone.tempoTela).filter(v => v !== -1 && v !== undefined);
+    const screenScores = screenLevels.map(v => scoreTela(v)).filter(v => v !== null);
+    const screenMean = screenScores.length ? screenScores.reduce((a, b) => a + b, 0) / screenScores.length : null;
+
+    groups.push({
+      title: "Hábitos de Vida",
+      items: [
+        { label: "Atividade Física Moderada (60min/dia)", score: atf1Mean, direction: "positive", hint: "↑ Mais alto = menor risco" },
+        { label: "Atividade Física Intensa (20min/dia)", score: atf2Mean, direction: "positive", hint: "↑ Mais alto = menor risco" },
+        { label: "Tempo de Tela", score: screenMean, direction: "risk", hint: "↓ Mais baixo = menor risco" },
+        { label: "Horas de Sono", score: sleepMean, direction: "positive", hint: "↑ Mais alto = menor risco" }
+      ]
+    });
+
+    // FAMÍLIA
+    groups.push({
+      title: "Família",
+      items: [
+        { label: "Suporte Familiar", score: idxScore("suporte_familiar"), direction: idxDefDir("suporte_familiar"), hint: "↑ Mais alto = menor risco" },
+        { label: "Conexão Social com os Pais", score: idxScore("conexao_pais"), direction: idxDefDir("conexao_pais"), hint: "↑ Mais alto = menor risco" },
+        { label: "Supervisão Parental de Telas", score: idxScore("supervisao_telas"), direction: idxDefDir("supervisao_telas"), hint: "↑ Mais alto = menor risco" }
+      ]
+    });
+
+    // ---- (a) Escore composto de risco global ----
+    // Usa apenas construtos de nível superior (exclui sub-itens de saúde mental individuais)
+    const compositeItems = groups.flatMap(g => g.items).filter(it => !it.isSubItem);
+    const riskValues = compositeItems.map(it => {
+      if (it.score === null) return null;
+      return it.direction === "risk" ? it.score : (100 - it.score);
+    }).filter(v => v !== null);
+    const compositeRisk = riskValues.length ? riskValues.reduce((a, b) => a + b, 0) / riskValues.length : null;
+
+    // ---- (b) Ranking de prioridade ----
+    // Ordenar por risco (maior risco primeiro = maior prioridade de intervenção)
+    const rankedItems = [...compositeItems].map(it => {
+      const riskVal = it.score !== null ? (it.direction === "risk" ? it.score : (100 - it.score)) : null;
+      return { ...it, riskVal };
+    }).filter(it => it.riskVal !== null).sort((a, b) => b.riskVal - a.riskVal);
+
+    // ---- (c) Breakdown por escola ----
+    // Para cada construto de índice (não standalone), calcular % de escolas em cada faixa de risco
+    const schoolBreakdownIds = [
+      "rel_professor_estudante", "rel_estudante_estudante", "seguranca_escolar", "justica_clareza_regras",
+      "engajamento_escolar_rede", "bullying_escolar", "engaj_cognitivo_comportamental", "engaj_emocional",
+      "pertencimento_escolar", "mentalidade_crescimento", "suporte_familiar", "conexao_pais", "supervisao_telas"
+    ];
+    const schoolNames = [...new Set(rows.map(r => r.demo.escola).filter(Boolean))];
+    const schoolBreakdown = schoolBreakdownIds.map(id => {
+      const def = indexDef(id);
+      if (!def) return null;
+      const dir = def.direction;
+      // Para cada escola, calcula a média do índice
+      const schoolMeans = schoolNames.map(name => {
+        const schoolRows = rows.filter(r => r.demo.escola === name);
+        const m = indexMean(schoolRows, id);
+        return { name, mean: m };
+      }).filter(s => s.mean !== null);
+      // Classifica cada escola em faixa de risco
+      const tiers = { baixo: 0, moderado: 0, elevado: 0, critico: 0 };
+      schoolMeans.forEach(s => {
+        const rl = riskLevel(s.mean, dir);
+        if (rl.level.includes("Baixo")) tiers.baixo++;
+        else if (rl.level.includes("moderado")) tiers.moderado++;
+        else if (rl.level.includes("elevado")) tiers.elevado++;
+        else if (rl.level.includes("crítico")) tiers.critico++;
+      });
+      const total = tiers.baixo + tiers.moderado + tiers.elevado + tiers.critico;
+      return {
+        id, label: def.label, direction: dir, tiers, total: schoolMeans.length,
+        pctBaixo: total ? (tiers.baixo / total * 100) : 0,
+        pctModerado: total ? (tiers.moderado / total * 100) : 0,
+        pctElevado: total ? (tiers.elevado / total * 100) : 0,
+        pctCritico: total ? (tiers.critico / total * 100) : 0
+      };
+    }).filter(Boolean);
+
+    // ---- Render ----
+    // CSS extra inline para laranja
+    const riskPillStyle = `<style>.pill.warn2{background:#fef3e2;color:#ed8936}</style>`;
+
+    // Card de construto individual
+    function riskCard(item) {
+      const rl = riskLevel(item.score, item.direction);
+      const scoreStr = item.score !== null ? item.score.toFixed(2) : "—";
+      const barW = item.score !== null ? Math.max(0, Math.min(100, item.score)) : 0;
+      return `
+        <div class="card" style="border-left:4px solid ${rl.color}">
+          <h3>${item.label}</h3>
+          <div class="kpi">
+            <div class="value" style="color:${rl.color};font-size:28px">${scoreStr}</div>
+            <div class="label" style="font-size:11px">escala 0–100</div>
+          </div>
+          <div style="background:#eef1f6;border-radius:8px;height:10px;overflow:hidden;margin:8px 0 6px">
+            <div style="width:${barW}%;height:100%;background:${rl.color};border-radius:8px"></div>
+          </div>
+          <span class="pill ${rl.css}" style="display:inline-block;margin-top:4px">${rl.level}</span>
+          <div style="color:var(--muted);font-size:11px;margin-top:6px">${item.hint}</div>
+        </div>`;
+    }
+
+    // Card do escore composto global
+    function compositeCard() {
+      const rl = riskLevel(compositeRisk, "risk"); // sempre risk: quanto maior, mais risco
+      const scoreStr = compositeRisk !== null ? compositeRisk.toFixed(2) : "—";
+      const barW = compositeRisk !== null ? Math.max(0, Math.min(100, compositeRisk)) : 0;
+      return `
+        <div class="card" style="border-left:4px solid ${rl.color}">
+          <h3 style="font-size:16px">Índice de Risco Global</h3>
+          <div class="sub">Média ponderada igual de todos os construtos (0–100, quanto maior = mais risco)</div>
+          <div class="kpi">
+            <div class="value" style="color:${rl.color};font-size:32px">${scoreStr}</div>
+            <div class="label">escala 0–100 (direction: risk)</div>
+          </div>
+          <div style="background:#eef1f6;border-radius:8px;height:12px;overflow:hidden;margin:8px 0 6px">
+            <div style="width:${barW}%;height:100%;background:${rl.color};border-radius:8px"></div>
+          </div>
+          <span class="pill ${rl.css}" style="display:inline-block;margin-top:4px">${rl.level}</span>
+          <div style="color:var(--muted);font-size:11px;margin-top:6px">↓ Mais baixo = menor risco</div>
+        </div>`;
+    }
+
+    // Tabela de ranking de prioridade
+    function rankingTable() {
+      const rows = rankedItems.map((it, i) => {
+        const rl = riskLevel(it.score, it.direction);
+        const scoreStr = it.score !== null ? it.score.toFixed(2) : "—";
+        const riskStr = it.riskVal !== null ? it.riskVal.toFixed(2) : "—";
+        return `<tr>
+          <td style="font-weight:700;color:${rl.color}">${i + 1}</td>
+          <td>${it.label}</td>
+          <td style="font-weight:600">${scoreStr}</td>
+          <td style="font-weight:700;color:${rl.color}">${riskStr}</td>
+          <td><span class="pill ${rl.css}" style="display:inline-block">${rl.level}</span></td>
+        </tr>`;
+      }).join("");
+      return `
+        <div class="card" style="overflow-x:auto">
+          <h3>Ranking de Prioridade de Intervenção</h3>
+          <div class="sub">Ordenado do maior para o menor nível de risco (construtos com maior necessidade de intervenção primeiro)</div>
+          <table class="simple" style="margin-top:10px">
+            <thead><tr><th>#</th><th>Construto</th><th>Score (0–100)</th><th>Risco</th><th>Classificação</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    // Breakdown por escola (stacked bar por construto)
+    function schoolBreakdownSection() {
+      const rows = schoolBreakdown.map(sb => {
+        return `<tr>
+          <td style="font-weight:600">${sb.label}</td>
+          <td style="text-align:center">${sb.total}</td>
+          <td>
+            <div style="display:flex;height:18px;border-radius:4px;overflow:hidden;min-width:120px">
+              <div style="width:${sb.pctBaixo}%;background:#1aa06d" title="${sb.tiers.baixo} escola(s) - Baixo risco"></div>
+              <div style="width:${sb.pctModerado}%;background:#e0a715" title="${sb.tiers.moderado} escola(s) - Risco moderado"></div>
+              <div style="width:${sb.pctElevado}%;background:#ed8936" title="${sb.tiers.elevado} escola(s) - Risco elevado"></div>
+              <div style="width:${sb.pctCritico}%;background:#e0483d" title="${sb.tiers.critico} escola(s) - Risco crítico"></div>
+            </div>
+          </td>
+          <td style="color:#1aa06d;font-weight:600;text-align:center">${sb.tiers.baixo}</td>
+          <td style="color:#e0a715;font-weight:600;text-align:center">${sb.tiers.moderado}</td>
+          <td style="color:#ed8936;font-weight:600;text-align:center">${sb.tiers.elevado}</td>
+          <td style="color:#e0483d;font-weight:600;text-align:center">${sb.tiers.critico}</td>
+        </tr>`;
+      }).join("");
+
+      return `
+        <div class="section-title" style="margin-top:28px">Distribuição de Risco por Escola</div>
+        <div class="section-desc">Para cada construto, quantas unidades de ensino estão em cada faixa de risco (baseado na média dos respondentes de cada escola).</div>
+        <div class="card" style="overflow-x:auto">
+          <table class="simple" style="margin-top:6px">
+            <thead><tr><th>Construto</th><th>Escolas</th><th>Distribuição</th><th style="color:#1aa06d">🟢 Baixo</th><th style="color:#e0a715">🟡 Moderado</th><th style="color:#ed8936">🟠 Elevado</th><th style="color:#e0483d">🔴 Crítico</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <div style="color:var(--muted);font-size:11px;margin-top:8px">${schoolNames.length} escola(s) na seleção atual</div>
+        </div>`;
+    }
+
+    // Monta o HTML
+    let html = riskPillStyle;
+    html += `<div class="section-title">Matriz de Riscos</div>`;
+    html += `<div class="section-desc">Panorama geral dos construtos com índice na escala 0–100 e classificação de risco. Faixas: <span style="color:#1aa06d;font-weight:700">● Baixo</span> (76–100 favorável / 0–25 risco), <span style="color:#e0a715;font-weight:700">● Moderado</span> (51–75 / 26–50), <span style="color:#ed8936;font-weight:700">● Elevado</span> (26–50 / 51–75), <span style="color:#e0483d;font-weight:700">● Crítico</span> (0–25 favorável / 76–100 risco).</div>`;
+
+    // (a) Escore composto global
+    html += `<div class="grid cols-2" style="margin-bottom:16px">`;
+    html += compositeCard();
+    // Legenda das faixas
+    html += `
+      <div class="card">
+        <h3>Legenda das Faixas de Risco</h3>
+        <div style="margin-top:10px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#1aa06d"></span><b style="color:#1aa06d">Baixo risco</b> — Índices positivos: 76–100 | Índices de risco: 0–25</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#e0a715"></span><b style="color:#e0a715">Risco moderado</b> — Positivos: 51–75 | Risco: 26–50</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#ed8936"></span><b style="color:#ed8936">Risco elevado</b> — Positivos: 26–50 | Risco: 51–75</div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#e0483d"></span><b style="color:#e0483d">Risco crítico</b> — Positivos: 0–25 | Risco: 76–100</div>
+        </div>
+        <div style="margin-top:12px;color:var(--muted);font-size:12px">
+          <div><b>Direction positive:</b> quanto maior o índice, mais favorável (menor risco)</div>
+          <div><b>Direction risk:</b> quanto maior o índice, mais desfavorável (maior risco)</div>
+        </div>
+      </div>`;
+    html += `</div>`;
+
+    // Cards por grupo
+    groups.forEach(g => {
+      html += `<div class="section-title" style="margin-top:28px">${g.title}</div>`;
+      html += `<div class="grid cols-4">${g.items.map(it => riskCard(it)).join("")}</div>`;
+    });
+
+    // (b) Ranking de prioridade
+    html += `<div class="section-title" style="margin-top:28px">Prioridade de Intervenção</div>`;
+    html += rankingTable();
+
+    // (c) Breakdown por escola
+    html += schoolBreakdownSection();
+
+    el.innerHTML = html;
+  }
+
+  // expose for debugging
+  window.__State = State;
+})();
+</script>
+</body>
+</html>
