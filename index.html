@@ -218,6 +218,7 @@ table.simple tr:hover td{background:#fafbfe}
 
   <div class="tabs">
     <button class="active" data-view="overview">Visão Geral</button>
+    <button data-view="constructs">Construtos</button>
     <button data-view="clima">Clima Escolar</button>
     <button data-view="engajamento">Engajamento &amp; Pertencimento</button>
     <button data-view="saude">Saúde Mental</button>
@@ -233,6 +234,7 @@ table.simple tr:hover td{background:#fafbfe}
 
   <main>
     <div class="view active" id="view-overview"></div>
+    <div class="view" id="view-constructs"></div>
     <div class="view" id="view-clima"></div>
     <div class="view" id="view-engajamento"></div>
     <div class="view" id="view-saude"></div>
@@ -265,7 +267,7 @@ const SCALES = {
   simnao: ["Não", "Sim"],
   scale0_10: ["0","1","2","3","4","5","6","7","8","9","10"],
   days0_7: ["Nenhum dia","1 dia","2 dias","3 dias","4 dias","5 dias","6 dias","7 dias"],
-  sleep: ["Menos que 4 horas","5 horas","6 horas","7 horas","8 horas","9 horas","Mais de 10 horas","10 horas"],
+  sleep: ["Menos que 4 horas","5 horas","6 horas","7 horas","8 horas","9 horas","Mais de 10 horas"],
   screen: ["Até 1 hora por dia","Mais de 1 hora até 2 horas por dia","Mais de 2 horas até 3 horas por dia","Mais de 3 horas até 4 horas por dia","Mais de 4 horas até 5 horas por dia","Mais de 5 horas até 6 horas por dia","Mais de 6 horas até 7 horas por dia","Mais de 7 horas até 8 horas por dia","Mais de 8 horas por dia"],
   friends: ["Nenhum amigo","1 amigo","2 amigos","3 ou mais amigos"],
   breakfast: ["Não","Raramente","Sim, 1 a 2 dias por semana","Sim, 3 a 4 dias por semana","Sim, 5 a 6 dias por semana","Sim, todos os dias"],
@@ -1402,6 +1404,7 @@ if (typeof module !== "undefined") {
     if (!rows) return;
     switch (State.activeView) {
       case "overview": renderOverview(rows); break;
+      case "constructs": renderConstrutos(rows); break;
       case "clima": renderClima(rows); break;
       case "engajamento": renderEngajamento(rows); break;
       case "saude": renderSaude(rows); break;
@@ -1562,6 +1565,721 @@ if (typeof module !== "undefined") {
     const max = arr.length ? arr[0][1] : 1;
     const topSchoolsEl = $("#topSchoolsList");
     if (topSchoolsEl) topSchoolsEl.innerHTML = arr.map(([name, c]) => rankBarHtml(name, c, max, c)).join("") || emptyNote();
+  }
+
+  // ---------------------------------------------------------------------
+  // CONSTRUTOS — Análise psicométrica por construto (alfa, ômega, K-S, etc.)
+  // ---------------------------------------------------------------------
+  // Lista de construtos analisáveis (todos os 14), ordenados por grupo temático
+  const CONSTRUCT_LIST = [
+    { id: "rel_professor_estudante",        group: "Clima Escolar" },
+    { id: "rel_estudante_estudante",        group: "Clima Escolar" },
+    { id: "seguranca_escolar",              group: "Clima Escolar" },
+    { id: "justica_clareza_regras",         group: "Clima Escolar" },
+    { id: "engajamento_escolar_rede",       group: "Clima Escolar" },
+    { id: "bullying_escolar",               group: "Clima Escolar" },
+    { id: "engaj_cognitivo_comportamental", group: "Engajamento & Pertencimento" },
+    { id: "engaj_emocional",                group: "Engajamento & Pertencimento" },
+    { id: "pertencimento_escolar",          group: "Engajamento & Pertencimento" },
+    { id: "mentalidade_crescimento",        group: "Aprendizagem" },
+    { id: "suporte_familiar",               group: "Família" },
+    { id: "conexao_pais",                   group: "Família" },
+    { id: "supervisao_telas",               group: "Hábitos de Vida" },
+    { id: "sofrimento_psiquico",            group: "Saúde Mental" }
+  ];
+
+  // Textos teóricos fixos por construto (Opção C, parte "a")
+  const CONSTRUCT_THEORY = {
+    rel_professor_estudante: {
+      teoria: "O construto <b>Relações Professor-Estudante</b> foi operacionalizado a partir da Escala Delaware de Clima Escolar — versão estudante (DSCS-S; Bear et al., 2015), composta por cinco itens em escala Likert de 4 pontos (Discordo muito · Discordo · Concordo · Concordo muito). O construto captura o grau em que os estudantes percebem que professores e demais adultos da escola demonstram cuidado, preocupação, escuta e afeto em relação ao corpo discente. Trata-se de uma dimensão de Suporte, central no modelo Delaware, e sua direção é positiva — escores mais elevados indicam relações mais saudáveis e protetivas.",
+      direcao: "positive"
+    },
+    rel_estudante_estudante: {
+      teoria: "O construto <b>Relações Estudante-Estudante</b> foi derivado da DSCS-S (Bear et al., 2015), com quatro itens em escala Likert de 4 pontos que avaliam amizade, cooperação e respeito mútuo entre pares. Como dimensão de Suporte entre pares, complementa as relações verticais (professor-aluno) e contribui para a percepção global de pertencimento. Direção positiva: escores mais altos indicam clima de convivência mais saudável.",
+      direcao: "positive"
+    },
+    seguranca_escolar: {
+      teoria: "O construto <b>Segurança Escolar</b>, também extraído da DSCS-S (Bear et al., 2015), é composto por quatro itens Likert de 4 pontos que avaliam a percepção dos estudantes sobre proteção física e psicológica no ambiente escolar. Integra a dimensão de Estrutura do modelo Delaware e funciona como variável crítica para o engajamento acadêmico, dada a literatura que associa insegurança escolar a queda no desempenho e aumento da evasão. Direção positiva: escores maiores indicam percepção de segurança mais favorável.",
+      direcao: "positive"
+    },
+    justica_clareza_regras: {
+      teoria: "O construto <b>Justiça e Clareza das Regras</b> foi operacionalizado por seis itens da DSCS-S (Bear et al., 2015) em escala Likert de 4 pontos, avaliando a percepção dos estudantes sobre a justeza e a comunicabilidade das regras e consequências disciplinares. Integra a dimensão de Estrutura do modelo Delaware e tem papel protetivo documentado: ambientes com regras claras e percebidas como justas associam-se a menor incidência de comportamentos infracionais e maior engajamento acadêmico. Direção positiva: escores maiores indicam percepção mais favorável.",
+      direcao: "positive"
+    },
+    engajamento_escolar_rede: {
+      teoria: "O construto <b>Engajamento Estudantil (percepção coletiva)</b> foi operacionalizado por quatro itens da DSCS-S (Bear et al., 2015) em escala Likert de 4 pontos. Ao contrário do engajamento individual (autoavaliação), este construto captura a <i>percepção coletiva</i> do engajamento da maioria dos colegas — esforço, atenção, entrega de tarefas e busca por boas notas. Direção positiva: escores maiores indicam percepção de um ambiente mais engajado academicamente.",
+      direcao: "positive"
+    },
+    bullying_escolar: {
+      teoria: "O construto <b>Bullying Escolar</b> foi operacionalizado por quatro itens da DSCS-S (Bear et al., 2015) em escala Likert de 4 pontos que avaliam a extensão do sentimento de ameaça, medo e percepção do bullying como problema institucional. Diferentemente dos demais construtos do modelo Delaware, este possui direção de <b>risco</b> — escores mais elevados indicam maior prevalência e impacto do bullying, configurando um indicador de alerta para intervenção.",
+      direcao: "risk"
+    },
+    engaj_cognitivo_comportamental: {
+      teoria: "O construto <b>Engajamento Cognitivo-Comportamental</b> foi derivado da escala de Holst (2014), baseada no modelo tripartite de engajamento de Fredricks, Blumenfeld e Paris (2004). Cinco itens em escala Likert de 4 pontos avaliam o esforço acadêmico pessoal, a atenção nas aulas, a conformidade às normas e o desempenho autorrelatado. Diferencia-se do engajamento coletivo por captar a autorregulação individual. Direção positiva: escores maiores indicam maior engajamento cognitivo-comportamental.",
+      direcao: "positive"
+    },
+    engaj_emocional: {
+      teoria: "O construto <b>Engajamento Emocional</b> foi derivado da escala de Holst (2014), com cinco itens em escala Likert de 4 pontos que avaliam sentimentos de felicidade, agrado e identificação do aluno com a escola. Capta a dimensão afetiva do modelo tripartite de engajamento e tem forte associação com persistência escolar e bem-estar psicológico. Direção positiva: escores maiores indicam maior engajamento emocional.",
+      direcao: "positive"
+    },
+    pertencimento_escolar: {
+      teoria: "O construto <b>Sentimento de Pertencimento Escolar</b> foi operacionalizado por seis itens adaptados do PISA (OCDE, 2022) em escala Likert de 4 pontos. Avalia o grau de conexão social, aceitação e acolhimento sentido pelo estudante na escola. Itens reversos foram previamente invertidos para que escores mais altos sempre indiquem maior pertencimento. Direção positiva: escores maiores indicam vínculo mais forte com a comunidade escolar.",
+      direcao: "positive"
+    },
+    mentalidade_crescimento: {
+      teoria: "O construto <b>Mentalidade Fixa (Fixed Mindset)</b> foi operacionalizado por quatro itens adaptados da literatura sobre mentalidade (Dweck, 2006; PISA, 2022) em escala Likert de 4 pontos. Avalia a crença de que inteligência, criatividade e habilidades são inatas e imutáveis. Possui direção de <b>risco</b> — escores mais elevados indicam mentalidade fixa mais forte, fator associado a menor persistência frente a desafios acadêmicos e pior desempenho em situações de dificuldade.",
+      direcao: "risk"
+    },
+    suporte_familiar: {
+      teoria: "O construto <b>Suporte Familiar para Aprendizagem</b> foi operacionalizado por dez itens adaptados do PISA (OCDE, 2022) em escala de frequência de 5 pontos (Nunca ou quase nunca · ... · Todo o dia ou quase todo o dia). Avalia o envolvimento ativo da família no cotidiano escolar — conversas sobre desempenho, incentivo acadêmico, demonstrações de interesse. Direção positiva: escores maiores indicam maior suporte familiar percebido.",
+      direcao: "positive"
+    },
+    conexao_pais: {
+      teoria: "O construto <b>Conexão Social com os Pais</b> foi operacionalizado por oito itens adaptados do PISA (OCDE, 2022) em escala de 3 pontos (Quase nunca · Algumas vezes · Quase sempre). Avalia a qualidade do vínculo emocional e o suporte à autonomia concedido pela família. Itens reversos (controle excessivo, tratamento infantilizante) foram previamente invertidos. Direção positiva: escores maiores indicam conexão familiar mais saudável.",
+      direcao: "positive"
+    },
+    supervisao_telas: {
+      teoria: "O construto <b>Supervisão Parental no Uso de Telas</b> foi operacionalizado por quatro itens dicotômicos (Sim/Não) inspirados em diretrizes da Sociedade Brasileira de Pediatria (SBP, 2022). Avalia a existência de regras familiares restritivas sobre tempo, dias da semana, refeições e horário de dormir. Por sua natureza dicotômica, deve ser interpretado com cautela em análises psicométricas baseadas em teoria clássica dos testes (assunção de continuidade). Direção positiva: escores maiores indicam maior presença de regras familiares.",
+      direcao: "positive"
+    },
+    sofrimento_psiquico: {
+      teoria: "O construto <b>Saúde Mental (Sofrimento Psíquico)</b> é um índice virtual composto pelos cinco indicadores inspirados no PeNSE/IBGE (2024) — preocupação excessiva (ansiedade), tristeza (humor deprimido), sensação de descaso, irritabilidade e ideação suicida — em escala de frequência de 5 pontos (Nunca · Raramente · Às vezes · Na maioria das vezes · Sempre). Captura a dimensionalidade internalizante/externalizante do sofrimento psíquico autorrelatado nos últimos 30 dias. Possui direção de <b>risco</b> — escores mais elevados indicam maior frequência e intensidade de sintomas, configurando indicador de triagem para encaminhamento clínico.",
+      direcao: "risk"
+    }
+  };
+
+  // ---------- Funções estatísticas auxiliares ----------
+  // Coeficiente de assimetria (Fisher-Pearson g1)
+  function skewness(arr) {
+    const n = arr.length;
+    if (n < 3) return null;
+    const m = Engine.mean(arr);
+    const s = Engine.stddev(arr);
+    if (s === null || s === 0) return null;
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += Math.pow((arr[i] - m) / s, 3);
+    return (n / ((n - 1) * (n - 2))) * sum;
+  }
+  // Curtose excessiva (g2, padrão SPSS/R)
+  function kurtosis(arr) {
+    const n = arr.length;
+    if (n < 4) return null;
+    const m = Engine.mean(arr);
+    const s = Engine.stddev(arr);
+    if (s === null || s === 0) return null;
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += Math.pow((arr[i] - m) / s, 4);
+    const a = (n * (n + 1)) / ((n - 1) * (n - 2) * (n - 3));
+    const b = (3 * Math.pow(n - 1, 2)) / ((n - 2) * (n - 3));
+    return a * sum - b;
+  }
+  // Erro-padrão da assimetria (aproximação clássica)
+  function seSkewness(n) { return n > 0 ? Math.sqrt((6 * n * (n - 1)) / ((n - 2) * (n + 1) * (n + 3))) : null; }
+  // Erro-padrão da curtose (aproximação clássica)
+  function seKurtosis(n) { return n > 3 ? 2 * seSkewness(n) * Math.sqrt((n * n - 1) / ((n - 3) * (n + 5))) : null; }
+
+  // Moda discreta sobre valores 0-100 (com 2 casas) — retorna valor mais frequente
+  function modeOf(arr) {
+    if (!arr || !arr.length) return null;
+    const counts = {};
+    let bestVal = null, bestCount = -1;
+    for (const v of arr) {
+      const key = (Math.round(v * 100) / 100).toFixed(2); // arredonda p/ 2 casas p/ agrupar empates
+      counts[key] = (counts[key] || 0) + 1;
+      if (counts[key] > bestCount) { bestCount = counts[key]; bestVal = Number(key); }
+    }
+    return bestVal;
+  }
+
+  // ---------- Alfa de Cronbach ----------
+  // itemMatrix: array de arrays, cada array = escores (0-100) de um item para n respondentes
+  // Assume que todos os respondentes têm todos os itens (sem missing data, conforme usuário)
+  function cronbachAlpha(itemMatrix) {
+    const k = itemMatrix.length;
+    const n = itemMatrix[0].length;
+    if (k < 2 || n < 2) return null;
+    // Variância amostral (n-1) de cada item
+    const itemVars = itemMatrix.map(col => {
+      const m = Engine.mean(col);
+      return col.reduce((a, b) => a + (b - m) * (b - m), 0) / (n - 1);
+    });
+    // Escore total
+    const totals = [];
+    for (let i = 0; i < n; i++) {
+      let s = 0;
+      for (let j = 0; j < k; j++) s += itemMatrix[j][i];
+      totals.push(s);
+    }
+    const tm = Engine.mean(totals);
+    const tVar = totals.reduce((a, b) => a + (b - tm) * (b - tm), 0) / (n - 1);
+    if (tVar === 0) return null;
+    return (k / (k - 1)) * (1 - itemVars.reduce((a, b) => a + b, 0) / tVar);
+  }
+
+  // ---------- Ômega de McDonald (via PCA determinístico sobre matriz de correlação) ----------
+  function mcdonaldOmega(itemMatrix) {
+    const k = itemMatrix.length;
+    const n = itemMatrix[0].length;
+    if (k < 3 || n < k) return null; // ω requer k>=3 e n>k
+    // Matriz de correlação k×k (Pearson)
+    const corr = [];
+    for (let i = 0; i < k; i++) {
+      corr.push([]);
+      for (let j = 0; j < k; j++) {
+        corr[i].push(i === j ? 1 : Engine.pearson(itemMatrix[i], itemMatrix[j]));
+      }
+    }
+    // Cálculo do primeiro componente principal via power iteration sobre a matriz de correlação
+    // (aproximação determinística adequada para k pequeno, típico de escalas psicometricas)
+    let v = [];
+    for (let i = 0; i < k; i++) v.push(1 / Math.sqrt(k)); // inicial unitário
+    let eigenvalue = 0;
+    for (let iter = 0; iter < 500; iter++) {
+      // v' = corr * v
+      const vNew = new Array(k).fill(0);
+      for (let i = 0; i < k; i++) {
+        let s = 0;
+        for (let j = 0; j < k; j++) s += corr[i][j] * v[j];
+        vNew[i] = s;
+      }
+      // normaliza
+      let norm = 0;
+      for (let i = 0; i < k; i++) norm += vNew[i] * vNew[i];
+      norm = Math.sqrt(norm);
+      if (norm === 0) return null;
+      for (let i = 0; i < k; i++) vNew[i] /= norm;
+      eigenvalue = norm;
+      // convergiu?
+      let diff = 0;
+      for (let i = 0; i < k; i++) diff += Math.abs(vNew[i] - v[i]);
+      v = vNew;
+      if (diff < 1e-10) break;
+    }
+    // Cargas λi = vi * sqrt(eigenvalue) (correlação item-componente)
+    const lambdas = v.map(vi => vi * Math.sqrt(Math.abs(eigenvalue)));
+    // ω = (Σλi)² / [(Σλi)² + Σ(1 - λi²)]
+    const sumL = lambdas.reduce((a, b) => a + b, 0);
+    const sumL2 = sumL * sumL;
+    const sumUniq = lambdas.reduce((a, l) => a + (1 - l * l), 0);
+    if (sumL2 + sumUniq === 0) return null;
+    return sumL2 / (sumL2 + sumUniq);
+  }
+
+  // ---------- Alfa se item deletado ----------
+  // Retorna array de { code, alpha, totalVar } para cada item removido
+  function alphaIfDeleted(itemMatrix, codes) {
+    const k = itemMatrix.length;
+    const result = [];
+    for (let i = 0; i < k; i++) {
+      const reduced = itemMatrix.filter((_, idx) => idx !== i);
+      const a = cronbachAlpha(reduced);
+      result.push({ code: codes[i], alpha: a });
+    }
+    return result;
+  }
+
+  // ---------- Matriz de correlação inter-itens ----------
+  function itemCorrelationMatrix(itemMatrix) {
+    const k = itemMatrix.length;
+    const m = [];
+    for (let i = 0; i < k; i++) {
+      m.push([]);
+      for (let j = 0; j < k; j++) {
+        m[i].push(i === j ? 1 : Engine.pearson(itemMatrix[i], itemMatrix[j]));
+      }
+    }
+    return m;
+  }
+
+  // ---------- Teste K-S com correção de Lilliefors ----------
+  // Calcula D = max|F_emp(x) - Phi(x)| usando média e DP amostrais,
+  // e p-valor aproximado pela correção de Lilliefors (Dallal & Wilkinson, 1986;
+  // Stephens, 1970 para correção de n finito).
+  function kolmogorovSmirnovLilliefors(arr) {
+    const n = arr.length;
+    if (n < 5) return { D: null, df: n, p: null, method: "Lilliefors (n insuficiente)" };
+    const sorted = [...arr].sort((a, b) => a - b);
+    const m = Engine.mean(arr);
+    const s = Engine.stddev(arr);
+    if (s === null || s === 0) return { D: null, df: n, p: null, method: "Lilliefors (variância zero)" };
+    let D = 0;
+    for (let i = 0; i < n; i++) {
+      const z = (sorted[i] - m) / s;
+      const fEmp = (i + 1) / n;
+      const fEmpPrev = i / n;
+      const fTheo = Engine.normalCDF(z);
+      D = Math.max(D, Math.abs(fTheo - fEmp), Math.abs(fTheo - fEmpPrev));
+    }
+    // p-valor Lilliefors: usa valores críticos tabelados (Lilliefors, 1967) com
+    // correção para n finito (Stephens, 1970) e interpolação log-linear.
+    // Valores críticos assintóticos (n → ∞): c(α) tal que P(sqrt(n)*D > c) = α
+    const critical = [
+      { alpha: 0.20, c: 0.736 },
+      { alpha: 0.15, c: 0.768 },
+      { alpha: 0.10, c: 0.805 },
+      { alpha: 0.05, c: 0.886 },
+      { alpha: 0.01, c: 1.031 }
+    ];
+    // Estatística ajustada: t = (sqrt(n) - 0.01 + 0.85/sqrt(n)) * D  (Stephens, 1970)
+    const t = (Math.sqrt(n) - 0.01 + 0.85 / Math.sqrt(n)) * D;
+    let p;
+    if (t <= 0) {
+      p = 1;
+    } else if (t < critical[0].c) {
+      // t < c(0.20): p > 0.20. Interpolação suave de p = 1 (em t=0) até p = 0.20 (em t=c(0.20)).
+      const ratio = t / critical[0].c;
+      p = 1 - (1 - critical[0].alpha) * ratio * ratio;
+      p = Math.min(1, Math.max(critical[0].alpha, p));
+    } else if (t >= critical[critical.length - 1].c) {
+      // t >= c(0.01): p < 0.01. Extrapolação logarítmica decrescente.
+      const last = critical[critical.length - 1];
+      const prev = critical[critical.length - 2];
+      const slope = (Math.log(last.alpha) - Math.log(prev.alpha)) / (last.c - prev.c);
+      p = Math.exp(Math.log(last.alpha) + slope * (t - last.c));
+      p = Math.max(0, Math.min(last.alpha, p));
+    } else {
+      // Interpolação log-linear entre valores críticos adjacentes.
+      for (let i = 0; i < critical.length - 1; i++) {
+        if (t >= critical[i].c && t < critical[i + 1].c) {
+          const a1 = critical[i].alpha, a2 = critical[i + 1].alpha;
+          const c1 = critical[i].c, c2 = critical[i + 1].c;
+          p = Math.exp(Math.log(a1) + (Math.log(a2) - Math.log(a1)) * (t - c1) / (c2 - c1));
+          break;
+        }
+      }
+    }
+    p = Math.max(0, Math.min(1, p));
+    return { D, df: n, p, method: "Lilliefors (correção para parâmetros estimados; Stephens, 1970)" };
+  }
+
+  // ---------- Coleta de escores por respondente para um construto ----------
+  // Retorna { compositeScores: [0-100 por respondente], itemMatrix: [k itens x n respondentes], codes: [k códigos] }
+  function collectConstructData(rows, constructId) {
+    const compositeScores = [];
+    const itemMatrix = []; // cada elemento = array de escores 0-100 de um item
+    let codes = [];
+    let itemLabels = [];
+
+    if (constructId === "sofrimento_psiquico") {
+      // Construto virtual: usa itens de saúde mental PeNSE
+      const items = CONFIG.MENTAL_HEALTH_ITEMS;
+      const opts = CONFIG.SCALES[CONFIG.MENTAL_HEALTH_SCALE];
+      codes = items.map(it => it.code);
+      itemLabels = items.map(it => it.label);
+      // Inicializa itemMatrix
+      items.forEach(() => itemMatrix.push([]));
+      rows.forEach(r => {
+        const itemScores = items.map(it => {
+          const lvl = r.mental[it.id];
+          if (lvl === -1 || lvl === null || lvl === undefined) return null;
+          return (lvl / (opts.length - 1)) * 100;
+        });
+        // Como não há missing data, todos os itens devem ter valor válido
+        if (itemScores.every(v => v !== null)) {
+          itemScores.forEach((v, j) => itemMatrix[j].push(v));
+          const m = itemScores.reduce((a, b) => a + b, 0) / itemScores.length;
+          compositeScores.push(m);
+        }
+      });
+    } else {
+      const def = indexDef(constructId);
+      const cols = State.resolved.indices[constructId];
+      if (!def || !cols) return { compositeScores: [], itemMatrix: [], codes: [], itemLabels: [] };
+      codes = cols.map(c => c.code || c.label.slice(0, 8));
+      itemLabels = cols.map(c => (c.code ? c.code + " — " : "") + truncate(c.label, 60));
+      cols.forEach(() => itemMatrix.push([]));
+      rows.forEach(r => {
+        const is = r.indices[constructId];
+        if (!is || !is.itemScores) return;
+        // Verifica que todos os itens têm escore válido
+        if (is.itemScores.every(v => v !== null && v !== undefined)) {
+          is.itemScores.forEach((v, j) => itemMatrix[j].push(v));
+          compositeScores.push(is.score);
+        }
+      });
+    }
+    return { compositeScores, itemMatrix, codes, itemLabels };
+  }
+
+  // ---------- Render principal da aba Construtos ----------
+  function renderConstrutos(rows) {
+    const el = $("#view-constructs");
+    // Agrupa construtos por grupo temático para o dropdown
+    const grouped = {};
+    CONSTRUCT_LIST.forEach(c => {
+      if (!grouped[c.group]) grouped[c.group] = [];
+      grouped[c.group].push(c);
+    });
+    const optionsHtml = Object.keys(grouped).map(g =>
+      `<optgroup label="${g}">${grouped[g].map(c => `<option value="${c.id}">${defOf(c.id).label}</option>`).join("")}</optgroup>`
+    ).join("");
+
+    el.innerHTML = `
+      <div class="section-title">Análise psicométrica dos construtos</div>
+      <div class="section-desc">Estatísticas descritivas, fidedignidade (alfa de Cronbach e ômega de McDonald), teste de normalidade Kolmogorov-Smirnov (correção de Lilliefors) e histograma para inspeção visual. Selecione um construto no dropdown abaixo.</div>
+      <div class="card">
+        <div class="school-select-row">
+          <label style="font-weight:600;font-size:13px;color:var(--muted)">Construto:</label>
+          <select id="constructSelect">${optionsHtml}</select>
+        </div>
+      </div>
+      <div id="constructContent" style="margin-top:16px"></div>
+    `;
+
+    function draw() {
+      const id = $("#constructSelect").value;
+      drawConstruct(id, rows);
+    }
+    $("#constructSelect").addEventListener("change", draw);
+    draw();
+  }
+
+  // ---------- Desenha um construto específico ----------
+  function drawConstruct(constructId, rows) {
+    const container = $("#constructContent");
+    const def = defOf(constructId);
+    const theory = CONSTRUCT_THEORY[constructId];
+    const data = collectConstructData(rows, constructId);
+    const scores = data.compositeScores;
+    const n = scores.length;
+
+    if (n < 5) {
+      container.innerHTML = `<div class="card">${emptyNote("Amostra insuficiente (n < 5) para análise psicométrica deste construto na seleção atual.")}</div>`;
+      return;
+    }
+
+    // Estatísticas descritivas
+    const m = Engine.mean(scores);
+    const med = Engine.median(scores);
+    const mod = modeOf(scores);
+    const min = Math.min(...scores);
+    const max = Math.max(...scores);
+    const sd = Engine.stddev(scores);
+    const g1 = skewness(scores);
+    const g2 = kurtosis(scores);
+    const seG1 = seSkewness(n);
+    const seG2 = seKurtosis(n);
+    const ks = kolmogorovSmirnovLilliefors(scores);
+
+    // Fidedignidade
+    const alpha = cronbachAlpha(data.itemMatrix);
+    const omega = mcdonaldOmega(data.itemMatrix);
+    const alphaDeleted = alphaIfDeleted(data.itemMatrix, data.codes);
+    const corrMatrix = itemCorrelationMatrix(data.itemMatrix);
+
+    // Vereditos interpretativos
+    const alphaVerdict = alpha === null ? "—" :
+      (alpha < 0.70 ? "questionável" :
+       (alpha < 0.80 ? "aceitável" :
+        (alpha < 0.90 ? "bom" : "excelente")));
+    const omegaVerdict = omega === null ? "—" :
+      (omega < 0.70 ? "questionável" :
+       (omega < 0.80 ? "aceitável" :
+        (omega < 0.90 ? "bom" : "excelente")));
+    const skewVerdict = g1 === null ? "—" :
+      (Math.abs(g1) < 0.5 ? "aproximadamente simétrica" :
+       (g1 >= 0.5 && g1 < 1 ? "assimetria positiva moderada" :
+        (g1 >= 1 ? "assimetria positiva acentuada" :
+         (g1 <= -0.5 && g1 > -1 ? "assimetria negativa moderada" : "assimetria negativa acentuada"))));
+    const kurtVerdict = g2 === null ? "—" :
+      (Math.abs(g2) < 0.5 ? "mesocúrtica" :
+       (g2 >= 0.5 ? "leptocúrtica (caudas mais pesadas)" : "platicúrtica (caudas mais leves)"));
+    const ksVerdict = ks.p === null ? "—" :
+      (ks.p < 0.05 ? "rejeita-se H0 de normalidade (p < 0,05)" : "não se rejeita H0 de normalidade (p ≥ 0,05)");
+
+    // ---------- Bloco 1: KPIs ----------
+    const kpiHtml = `
+      <div class="grid cols-4">
+        ${kpiCard("n (respondentes válidos)", n.toLocaleString("pt-BR"), "casos com escore composto válido")}
+        ${kpiCard("Itens (k)", data.itemMatrix.length, "após inversão de itens reversos")}
+        ${kpiCard("Alfa de Cronbach (α)", fmtNum2(alpha), alphaVerdict)}
+        ${kpiCard("Ômega de McDonald (ω)", fmtNum2(omega), omegaVerdict)}
+      </div>
+    `;
+
+    // ---------- Bloco 2: Tabela de estatísticas descritivas ----------
+    const statsHtml = `
+      <div class="card" style="margin-top:16px">
+        <h3>Estatísticas descritivas e teste de normalidade</h3>
+        <div class="sub">Escore composto 0-100 (média dos itens normalizados). ${ks.method}.</div>
+        <table class="simple" style="margin-top:10px">
+          <thead>
+            <tr>
+              <th>Média</th>
+              <th>Mediana</th>
+              <th>Moda</th>
+              <th>Mínimo</th>
+              <th>Máximo</th>
+              <th>Desvio-padrão</th>
+              <th>Assimetria (g₁)</th>
+              <th>Curtose (g₂)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>${fmtNum2(m)}</b></td>
+              <td>${fmtNum2(med)}</td>
+              <td>${fmtNum2(mod)}</td>
+              <td>${fmtNum2(min)}</td>
+              <td>${fmtNum2(max)}</td>
+              <td>${fmtNum2(sd)}</td>
+              <td>${fmtNum2(g1)} <span style="color:var(--muted);font-size:11px">(EP=${fmtNum2(seG1)})</span></td>
+              <td>${fmtNum2(g2)} <span style="color:var(--muted);font-size:11px">(EP=${fmtNum2(seG2)})</span></td>
+            </tr>
+            <tr style="color:var(--muted);font-size:12px">
+              <td colspan="6" style="border-top:1px dashed var(--line)"></td>
+              <td style="border-top:1px dashed var(--line)">${skewVerdict}</td>
+              <td style="border-top:1px dashed var(--line)">${kurtVerdict}</td>
+            </tr>
+          </tbody>
+        </table>
+        <table class="simple" style="margin-top:12px">
+          <thead>
+            <tr>
+              <th>Teste de normalidade</th>
+              <th>Estatística D</th>
+              <th>Graus de liberdade (df)</th>
+              <th>p-valor (Lilliefors)</th>
+              <th>Interpretação</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Kolmogorov-Smirnov (Lilliefors)</td>
+              <td><b>${fmtNum2(ks.D)}</b></td>
+              <td>${ks.df}</td>
+              <td><b>${ks.p === null ? "—" : (ks.p < 0.001 ? "&lt; 0,001" : ks.p.toFixed(3).replace('.', ','))}</b></td>
+              <td style="color:${ks.p !== null && ks.p < 0.05 ? 'var(--bad)' : 'var(--good)'}">${ksVerdict}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    // ---------- Bloco 3: Histograma ----------
+    const histHtml = `
+      <div class="card" style="margin-top:16px">
+        <h3>Histograma — inspeção visual da distribuição</h3>
+        <div class="sub">Bins calculados via regra de Sturges (k = ⌈1 + log₂(n)⌉). Linha tracejada azul: média; linha tracejada verde: mediana; curva contínua: normal teórica com mesma média e DP.</div>
+        <div class="chart-wrap tall" style="height:380px"><canvas id="chConstructHist"></canvas></div>
+      </div>
+    `;
+
+    // ---------- Bloco 4: α se item deletado ----------
+    const alphaDeletedHtml = `
+      <div class="card" style="margin-top:16px">
+        <h3>Alfa de Cronbach se item deletado</h3>
+        <div class="sub">Valor do alfa se o item correspondente fosse removido do construto. Itens cuja remoção <i>aumenta</i> o alfa são candidatos a revisão psicométrica.</div>
+        <table class="simple" style="margin-top:10px">
+          <thead><tr><th>#</th><th>Código</th><th>Item</th><th>α se deletado</th><th>Diferença vs. α atual</th></tr></thead>
+          <tbody>
+            ${alphaDeleted.map((r, i) => {
+              const diff = (r.alpha !== null && alpha !== null) ? r.alpha - alpha : null;
+              const diffStr = diff === null ? "—" : (diff >= 0 ? "+" : "") + diff.toFixed(3).replace('.', ',');
+              const diffColor = diff === null ? '' : (diff > 0.01 ? 'var(--bad)' : (diff < -0.01 ? 'var(--good)' : ''));
+              return `<tr>
+                <td>${i + 1}</td>
+                <td><b>${escapeHtml(r.code || "—")}</b></td>
+                <td style="max-width:520px">${escapeHtml(data.itemLabels[i] || "")}</td>
+                <td>${fmtNum2(r.alpha)}</td>
+                <td style="color:${diffColor}">${diffStr}</td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    // ---------- Bloco 5: Heatmap de correlação inter-itens ----------
+    const corrHtml = `
+      <div class="card" style="margin-top:16px">
+        <h3>Matriz de correlação inter-itens (Pearson)</h3>
+        <div class="sub">Heatmap k×k das correlações entre os itens do construto. Azul = correlação positiva; vermelho = negativa. Valores |r| > 0,70 podem indicar redundância.</div>
+        <div class="heatmap-scroll" style="margin-top:10px">
+          <table class="heatmap-table">
+            <thead><tr><th></th>${data.codes.map(c => `<th title="${escapeHtml(c)}">${escapeHtml(c)}</th>`).join("")}</tr></thead>
+            <tbody>
+              ${corrMatrix.map((row, i) =>
+                `<tr><th title="${escapeHtml(data.itemLabels[i])}">${escapeHtml(data.codes[i])}</th>` +
+                row.map(r => {
+                  const v = r === null ? null : r;
+                  const bg = v === null ? "#eef1f6" : heatColor(Math.max(-1, Math.min(1, v)));
+                  const txt = v === null ? "—" : v.toFixed(2);
+                  return `<td><div class="heatmap-cell" style="background:${bg}" title="r = ${txt}">${txt}</div></td>`;
+                }).join("") +
+                `</tr>`
+              ).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    // ---------- Bloco 6: Parágrafo descritivo (Opção C: teoria + dinâmico + recomendações) ----------
+    // Parte (b) — interpretação dinâmica das estatísticas
+    const dirLabel = def.direction === "risk" ? "risco (valores maiores indicam pior desfecho)" : "positivo (valores maiores indicam melhor desfecho)";
+    const alphaInterp = alpha === null ? "não foi possível calcular o alfa de Cronbach (variância insuficiente)" :
+      (alpha < 0.70 ? `o alfa de Cronbach atingiu <b>${fmtNum2(alpha)}</b>, valor abaixo do limiar mínimo de 0,70 recomendado pela literatura (Nunnally & Bernstein, 1994), sugerindo consistência interna <b>questionável</b> e indicando a necessidade de revisão dos itens — possivelmente reformulação de itens com baixa correlação item-total ou exclusão de itens problemáticos` :
+       (alpha < 0.80 ? `o alfa de Cronbach atingiu <b>${fmtNum2(alpha)}</b>, valor dentro da faixa <b>aceitável</b> (0,70–0,80) para instrumentos em fase de desenvolvimento, ainda que abaixo do patamar desejável (≥0,80) para uso em decisões individuais` :
+        (alpha < 0.90 ? `o alfa de Cronbach atingiu <b>${fmtNum2(alpha)}</b>, valor na faixa <b>bom</b> (0,80–0,90), indicando consistência interna adequada para uso em pesquisas e triagem populacional` :
+                       `o alfa de Cronbach atingiu <b>${fmtNum2(alpha)}</b>, valor na faixa <b>excelente</b> (≥0,90), indicando consistência interna robusta e adequada inclusive para uso em decisões individuais`)));
+    const omegaInterp = omega === null ? "não foi possível calcular o ômega de McDonald (k < 3 ou amostra insuficiente)" :
+      (omega < 0.70 ? `o ômega de McDonald atingiu <b>${fmtNum2(omega)}</b>, abaixo do limiar mínimo de 0,70` :
+       (omega < 0.80 ? `o ômega de McDonald atingiu <b>${fmtNum2(omega)}</b>, na faixa aceitável` :
+        (omega < 0.90 ? `o ômega de McDonald atingiu <b>${fmtNum2(omega)}</b>, na faixa boa` :
+                       `o ômega de McDonald atingiu <b>${fmtNum2(omega)}</b>, na faixa excelente`)));
+    const alphaOmegaComparison = (alpha !== null && omega !== null) ?
+      (Math.abs(alpha - omega) < 0.03 ? `A convergência entre α (${fmtNum2(alpha)}) e ω (${fmtNum2(omega)}) indica que a fidedignidade não está substancialmente inflada pela violação da tau-equivalência (Hayes & Coutts, 2020), reforçando a robustez da estimativa.` :
+       (omega > alpha ? `A discrepância entre α (${fmtNum2(alpha)}) e ω (${fmtNum2(omega)}), com ω > α, sugere que a violação da pressuposição de tau-equivalência leva a uma subestimação da fidedignidade pelo alfa, sendo o ômega estimate mais adequado neste caso.` :
+                        `A discrepância entre α (${fmtNum2(alpha)}) e ω (${fmtNum2(omega)}), com α > ω, é atípica e pode indicar presença de itens com cargas fatoriais heterogêneas ou estrutura multidimensional latente, recomendando análise fatorial exploratória para esclarecimento.`)) : "";
+
+    const skewInterp = g1 === null ? "—" :
+      (Math.abs(g1) < 0.5 ? `a assimetria (g₁ = ${fmtNum2(g1)}, EP = ${fmtNum2(seG1)}) indica distribuição <b>aproximadamente simétrica</b> (|g₁| < 0,5), sugerindo que as médias são boas estimadores de tendência central` :
+       (g1 >= 0.5 ? `a assimetria positiva (g₁ = ${fmtNum2(g1)}, EP = ${fmtNum2(seG1)}) indica cauda à direita, com concentração de escores baixos — interpretação: parte expressiva dos respondentes apresenta níveis baixos do construto` :
+                    `a assimetria negativa (g₁ = ${fmtNum2(g1)}, EP = ${fmtNum2(seG1)}) indica cauda à esquerda, com concentração de escores altos — interpretação: parte expressiva dos respondentes apresenta níveis elevados do construto`));
+    const kurtInterp = g2 === null ? "—" :
+      (Math.abs(g2) < 0.5 ? `a curtose (g₂ = ${fmtNum2(g2)}, EP = ${fmtNum2(seG2)}) indica distribuição <b>mesocúrtica</b>, com caudas de espessura similar à normal` :
+       (g2 >= 0.5 ? `a curtose positiva (g₂ = ${fmtNum2(g2)}) indica distribuição <b>leptocúrtica</b>, com pico mais agudo e caudas mais pesadas que a normal — maior concentração em torno da média e maior proporção de casos extremos` :
+                    `a curtose negativa (g₂ = ${fmtNum2(g2)}) indica distribuição <b>platicúrtica</b>, com pico mais achatado e caudas mais leves — maior dispersão de casos em torno da média e menor proporção de extremos`));
+    const ksInterp = ks.p === null ? "—" :
+      (ks.p < 0.05 ? `o teste de Kolmogorov-Smirnov com correção de Lilliefors rejeitou a hipótese nula de normalidade (D = ${fmtNum2(ks.D)}, gl = ${ks.df}, <i>p</i> ${ks.p < 0.001 ? "&lt; 0,001" : "= " + ks.p.toFixed(3).replace('.', ',')}), indicando que a distribuição dos escores compostos <b>desvia-se significativamente da normalidade</b>. Consequentemente, testes inferenciais sobre este construto devem preferir métodos não paramétricos (Mann-Whitney, Kruskal-Wallis, Spearman), e interpretações baseadas em z-scores devem ser feitas com cautela, sobretudo em amostras pequenas` :
+                                       `o teste de Kolmogorov-Smirnov com correção de Lilliefors <b>não rejeitou</b> a hipótese nula de normalidade (D = ${fmtNum2(ks.D)}, gl = ${ks.df}, <i>p</i> = ${ks.p.toFixed(3).replace('.', ',')}), indicando que a distribuição dos escores compostos <b>é compatível com a normal</b>. Essa condição autoriza, em princípio, o uso de testes paramétricos (t de Student, ANOVA, Pearson), desde que demais pressupostos (homocedasticidade, independência) sejam atendidos`);
+
+    // Parte (c) — recomendações práticas
+    const recommendations = [];
+    if (alpha !== null && alpha < 0.70) recommendations.push("revisão psicométrica do construto: analisar a tabela de <i>α se item deletado</i> para identificar itens cuja remoção aumentaria o alfa, e examinar o heatmap de correlação inter-itens para detectar itens com baixa correlação (r < 0,30) ou correlações negativas que sugiram itens reversos mal invertidos");
+    if (Math.abs(g1) >= 1) recommendations.push(`atenção à assimetria acentuada (|g₁| ≥ 1): reportar adicionalmente mediana e IQR em análises descritivas, e considerar transformação dos escores se for utilizar modelos que assumem normalidade`);
+    if (ks.p !== null && ks.p < 0.05) recommendations.push("preferir estatísticas não paramétricas (Mann-Whitney, Kruskal-Wallis, Spearman) para inferências; evitar interpretações de z-scores em decisões individuais sem validação adicional");
+    if (alpha !== null && omega !== null && Math.abs(alpha - omega) >= 0.05) recommendations.push("reportar ω de McDonald em lugar do α de Cronbach em publicações, dada a violação da tau-equivalência");
+    if (corrMatrix && corrMatrix.length > 1) {
+      // detecta pares com |r| > 0.70
+      let highPairs = 0;
+      for (let i = 0; i < corrMatrix.length; i++)
+        for (let j = i + 1; j < corrMatrix.length; j++)
+          if (Math.abs(corrMatrix[i][j] || 0) > 0.70) highPairs++;
+      if (highPairs > 0) recommendations.push(`foram identificadas ${highPairs} correlação(ões) inter-item com |r| > 0,70, sugerindo possível redundância — considerar análise fatorial para avaliar a estrutura latente e eventual colapsamento de itens`);
+    }
+    if (recommendations.length === 0) recommendations.push("o construto apresenta propriedades psicométricas adequadas para uso em pesquisas e análises populacionais, sem necessidade imediata de refinamento");
+
+    const dynamicInterp = `
+      A análise estatística do construto <b>${def.label}</b> foi conduzida sobre uma amostra de <b>${n.toLocaleString("pt-BR")}</b> respondentes válidos, com ${data.itemMatrix.length} itens (k) previamente submetidos à inversão dos itens reversos. O escore composto, calculado como média dos itens normalizados para a escala 0-100, apresentou média de <b>${fmtNum2(m)}</b> (DP = ${fmtNum2(sd)}), mediana de ${fmtNum2(med)}, moda de ${fmtNum2(mod)} e amplitude observada de ${fmtNum2(min)} a ${fmtNum2(max)}. A direção do construto é ${dirLabel}. Quanto à forma da distribuição, ${skewInterp}; ${kurtInterp}. ${ksInterp}.
+      <br><br>
+      No que tange à <b>fidedignidade</b>, ${alphaInterp}. Já ${omegaInterp}. ${alphaOmegaComparison}
+      <br><br>
+      <b>Recomendações práticas:</b> ${recommendations.map((r, i) => `(${i + 1}) ${r.charAt(0).toUpperCase() + r.slice(1)};`).join(" ")}
+    `;
+
+    const descriptiveHtml = `
+      <div class="card" style="margin-top:16px;background:#f8fafc;border-left:4px solid var(--brand)">
+        <h3>Interpretação do construto</h3>
+        <p style="font-size:13.5px;line-height:1.65;color:var(--ink);margin:8px 0 0">
+          <b>Definição teórica.</b> ${theory.teoria}
+        </p>
+        <p style="font-size:13.5px;line-height:1.65;color:var(--ink);margin:12px 0 0">
+          <b>Análise estatística.</b> ${dynamicInterp}
+        </p>
+      </div>
+      <div class="footer-note">Métodos: alfa de Cronbach (Cronbach, 1951); ômega de McDonald via PCA determinístico sobre matriz de correlação inter-itens (McDonald, 1999; Hayes &amp; Coutts, 2020); teste K-S com correção de Lilliefors (Lilliefors, 1967; Dallal &amp; Wilkinson, 1986); regra de Sturges para definição de bins.</div>
+    `;
+
+    container.innerHTML = kpiHtml + statsHtml + histHtml + alphaDeletedHtml + corrHtml + descriptiveHtml;
+
+    // ---------- Histograma ----------
+    const sturgesBins = Math.ceil(1 + Math.log2(n));
+    const histMin = Math.floor(min);
+    const histMax = Math.ceil(max);
+    const binWidth = (histMax - histMin) / sturgesBins;
+    const binCounts = new Array(sturgesBins).fill(0);
+    scores.forEach(v => {
+      let idx = Math.floor((v - histMin) / binWidth);
+      if (idx >= sturgesBins) idx = sturgesBins - 1;
+      if (idx < 0) idx = 0;
+      binCounts[idx]++;
+    });
+    const binLabels = binCounts.map((_, i) => {
+      const lo = histMin + i * binWidth;
+      const hi = lo + binWidth;
+      return `${fmtNum2(lo)}–${fmtNum2(hi)}`;
+    });
+    const binPct = binCounts.map(c => n ? (c / n) * 100 : 0);
+
+    // Curva normal teórica: mesma média e DP, amostrada em ~30 pontos
+    const normLabels = [];
+    const normData = [];
+    const normPoints = 30;
+    for (let i = 0; i <= normPoints; i++) {
+      const x = histMin + (histMax - histMin) * (i / normPoints);
+      const z = (x - m) / (sd || 1);
+      // densidade da normal * n * binWidth = contagem esperada
+      const density = (1 / (Math.sqrt(2 * Math.PI) * (sd || 1))) * Math.exp(-0.5 * z * z);
+      const expectedCount = density * n * binWidth;
+      normLabels.push(fmtNum2(x));
+      normData.push(expectedCount);
+    }
+
+    makeChart("chConstructHist", {
+      type: "bar",
+      data: {
+        labels: binLabels,
+        datasets: [
+          { label: "Frequência observada", data: binCounts, backgroundColor: "rgba(36,84,255,.55)", borderColor: PALETTE[0], borderWidth: 1, borderRadius: 3, order: 2 },
+          { type: "line", label: "Normal teórica (μ, σ)", data: normData.map((v, i) => ({ x: i, y: v })), borderColor: PALETTE[3], borderWidth: 2, fill: false, pointRadius: 0, tension: 0.4, order: 1 }
+        ]
+      },
+      options: {
+        ...CHART_DEFAULTS,
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                if (ctx.datasetIndex === 0) {
+                  const c = ctx.raw;
+                  const p = n ? (c / n) * 100 : 0;
+                  return `${ctx.label}: ${c} (${fmtPct(p)})`;
+                }
+                return `Normal teórica: ${fmtNum2(ctx.raw.y)} (esperado)`;
+              }
+            }
+          },
+          annotation: {} // placeholder (linhas via plugin customizado abaixo)
+        },
+        scales: {
+          x: { ticks: { font: { size: 9 }, maxRotation: 60, minRotation: 45 } },
+          y: { beginAtZero: true, title: { display: true, text: "Contagem" } }
+        }
+      },
+      plugins: [{
+        id: "meanMedianLines",
+        afterDraw: (chart) => {
+          const xScale = chart.scales.x;
+          const yScale = chart.scales.y;
+          const ctx = chart.ctx;
+          if (!xScale || !yScale) return;
+          function drawVLine(value, color, label) {
+            // mapeia valor 0-100 -> índice de bin (contínuo) -> pixel
+            const idx = (value - histMin) / binWidth;
+            const px = xScale.left + (idx / sturgesBins) * (xScale.right - xScale.left);
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            ctx.moveTo(px, yScale.top);
+            ctx.lineTo(px, yScale.bottom);
+            ctx.stroke();
+            // rótulo
+            ctx.setLineDash([]);
+            ctx.fillStyle = color;
+            ctx.font = "bold 11px Segoe UI, sans-serif";
+            ctx.fillText(label, px + 4, yScale.top + 14);
+            ctx.restore();
+          }
+          drawVLine(m, PALETTE[0], `Média: ${fmtNum2(m)}`);
+          drawVLine(med, PALETTE[1], `Mediana: ${fmtNum2(med)}`);
+        }
+      }]
+    });
   }
 
   function catDist(rows, key) {
