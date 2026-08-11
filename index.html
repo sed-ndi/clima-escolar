@@ -65,6 +65,7 @@ textarea{resize:vertical; min-height:120px}
 .spinner{width:15px;height:15px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite; display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
 small.hint{color:var(--muted); display:block; margin-top:6px; font-size:12.3px}
+small.hint2{color:#fff; display:block; margin-top:6px; font-size:12.3px}
 
 /* ---------- Layout do dashboard ---------- */
 #dashScreen{display:none}
@@ -182,6 +183,7 @@ table.simple tr:hover td{background:#fafbfe}
         <p class="field-label">Link da planilha de respostas (Google Sheets)</p>
         <input type="url" id="inputUrl" placeholder="https://docs.google.com/spreadsheets/d/....../edit?usp=sharing" value="">
         <small class="hint">A planilha precisa estar compartilhada como "Qualquer pessoa com o link — Leitor". O link pode ser o de edição normal; a dashboard converte automaticamente para exportação em CSV.</small>
+        <small class="hint2">https://docs.google.com/spreadsheets/d/1cDBLGuoJg0XpK8XJ20Q8DKwd1UIjflv2d7yXLZQuKCs</small>
       </div>
       <button class="btn" id="btnLoadUrl">Carregar dashboard</button>
     </div>
