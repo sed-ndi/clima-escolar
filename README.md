@@ -28,7 +28,6 @@ Baixe o arquivo `index.html` e abra-o diretamente no navegador (duplo clique).
 ## 📊 Funcionalidades
 
 - ✅ **Carregamento de dados via Google Sheets** — Cole um link público de uma planilha Google para análise automática
-- ✅ **Upload de arquivo CSV** — Importe dados locais em formato CSV
 - ✅ **8 abas de análise** — Visão geral, clima escolar, engajamento, hábitos, bem-estar, família, comparativo por escola e correlações
 - ✅ **Filtros demográficos** — Escola, ano, turno e sexo
 - ✅ **Gráficos interativos** — Barras, pizza, scatter plots e matriz de correlação
@@ -68,6 +67,7 @@ Sugestões de melhorias, correções e novas funcionalidades são bem-vindas! Ab
 ## 📄 Licença
 
 Este projeto é desenvolvido pela **Secretaria de Educação - Área de Desenvolvimento Integral (U.E.F.)** da Prefeitura Municipal de Joinville/SC.
+Responsável pelo desenvolvimento da dashboard: Julio Cesar Schwochow - Agente Administrativo do Núcleo de Desenvolvimento Integral | NDI
 
 ---
 
