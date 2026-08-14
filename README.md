@@ -67,6 +67,7 @@ Sugestões de melhorias, correções e novas funcionalidades são bem-vindas! Ab
 ## 📄 Licença
 
 Este projeto é desenvolvido pela **Secretaria de Educação - Área de Desenvolvimento Integral (U.E.F.)** da Prefeitura Municipal de Joinville/SC.
+
 Responsável pelo desenvolvimento da dashboard: Julio Cesar Schwochow - Agente Administrativo do Núcleo de Desenvolvimento Integral | NDI
 
 ---
