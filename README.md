@@ -63,11 +63,13 @@ Sugestões de melhorias, correções e novas funcionalidades são bem-vindas! Ab
 
 ## 📄 Licença
 
-Este projeto é desenvolvido pela **Secretaria de Educação - Área de Desenvolvimento Integral (U.E.F.)** da Prefeitura Municipal de Joinville/SC.
+Este projeto é desenvolvido pela **Secretaria de Educação - Área de Desenvolvimento Integral (SED.UEF.ADP)** da Prefeitura Municipal de Joinville/SC.
 
 Coordenação do Projeto: Gabriel Iwaya
+
 Desenvolvimento da dashboard: Julio Cesar Schwochow
-Núcleo de Desenvolvimento Integral | NDI
+
+**Núcleo de Desenvolvimento Integral | NDI**
 
 ---
 
