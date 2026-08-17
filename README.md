@@ -17,12 +17,9 @@ Os resultados subsidiam **tomadas de decisão baseadas em evidências** para pro
 
 ## 🚀 Como Usar
 
-### Opção 1: Abrir Localmente
-Baixe o arquivo `index.html` e abra-o diretamente no navegador (duplo clique).
-
-### Opção 2: Acessar em GitHub Pages
 1. Acesse o link [https://sed-ndi.github.io/clima-escolar](https://sed-ndi.github.io/clima-escolar)
-2. Clique em `Carregar dashboard`
+2. Insira o link da planilha com as respostas da planilha (somente pessoas autorizadas)
+3. Clique em `Carregar dashboard`
 
 
 ## 📊 Funcionalidades
@@ -68,7 +65,9 @@ Sugestões de melhorias, correções e novas funcionalidades são bem-vindas! Ab
 
 Este projeto é desenvolvido pela **Secretaria de Educação - Área de Desenvolvimento Integral (U.E.F.)** da Prefeitura Municipal de Joinville/SC.
 
-Responsável pelo desenvolvimento da dashboard: Julio Cesar Schwochow - Agente Administrativo do Núcleo de Desenvolvimento Integral | NDI
+Coordenação do Projeto: Gabriel Iwaya
+Desenvolvimento da dashboard: Julio Cesar Schwochow
+Núcleo de Desenvolvimento Integral | NDI
 
 ---
 
