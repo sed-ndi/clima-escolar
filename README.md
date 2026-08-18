@@ -18,8 +18,7 @@ Os resultados subsidiam **tomadas de decisão baseadas em evidências** para pro
 ## 🚀 Como Usar
 
 1. Acesse o link [https://sed-ndi.github.io/clima-escolar](https://sed-ndi.github.io/clima-escolar)
-2. Insira o link da planilha com as respostas da planilha (somente pessoas autorizadas)
-3. Clique em `Carregar dashboard`
+2. Clique em `Carregar dashboard`
 
 
 ## 📊 Funcionalidades
