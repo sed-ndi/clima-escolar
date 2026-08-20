@@ -90,9 +90,21 @@ small.hint2{color:#fff; display:block; margin-top:6px; font-size:12.3px}
 .filters{
   background:#fbfcfe; border-bottom:1px solid var(--line); padding:12px 22px; display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;
 }
-.filters .f-group{min-width:150px}
+.filters .f-group{min-width:170px; position:relative}
 .filters label{display:block; font-size:11.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin-bottom:4px}
-.filters select{padding:7px 9px; font-size:13px}
+.filters .ms-trigger{
+  padding:7px 28px 7px 9px; font-size:13px; width:100%; border:1px solid var(--line); border-radius:6px; background:#fff; cursor:pointer; text-align:left; color:var(--ink); position:relative; line-height:1.4; min-height:34px; display:flex; align-items:center; flex-wrap:wrap; gap:2px}
+.filters .ms-trigger::after{content:'\25BE'; position:absolute; right:9px; top:50%; transform:translateY(-50%); font-size:11px; color:var(--muted); pointer-events:none}
+.filters .ms-trigger.has-selection{background:var(--brand-soft); border-color:var(--brand); color:var(--brand-ink); font-weight:600}
+.filters .ms-trigger .ms-count{background:var(--brand); color:#fff; border-radius:999px; padding:0 7px; font-size:11px; font-weight:700; margin-left:4px}
+.filters .ms-dropdown{display:none; position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 8px 24px rgba(20,30,50,.12); z-index:100; max-height:280px; overflow-y:auto; margin-top:4px}
+.filters .ms-dropdown.open{display:block}
+.filters .ms-dropdown label{display:flex; align-items:center; gap:8px; padding:7px 12px; font-size:13px; font-weight:400; text-transform:none; letter-spacing:normal; color:var(--ink); cursor:pointer; transition:background .1s}
+.filters .ms-dropdown label:hover{background:#f0f3f8}
+.filters .ms-dropdown input[type=checkbox]{width:16px; height:16px; accent-color:var(--brand); cursor:pointer; flex-shrink:0}
+.filters .ms-actions{display:flex; gap:6px; padding:6px 10px; border-top:1px solid var(--line); position:sticky; bottom:0; background:#fff}
+.filters .ms-actions button{font-size:11.5px; padding:4px 10px; border-radius:4px; border:1px solid var(--line); background:#fff; cursor:pointer; color:var(--muted)}
+.filters .ms-actions button:hover{background:#f0f3f8; color:var(--ink)}
 .filters .btn{padding:8px 12px; font-size:13px}
 
 main{padding:20px 22px 60px; max-width:1400px; margin:0 auto}
@@ -127,12 +139,24 @@ main{padding:20px 22px 60px; max-width:1400px; margin:0 auto}
 .pill{font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px}
 .pill.good{background:#e8f8f0; color:var(--good)}
 .pill.warn{background:#fff6e0; color:var(--warn)}
+.pill.warn2{background:#fef3e2;color:#ed8936}
 .pill.bad{background:#fdecea; color:var(--bad)}
 
 table.simple{width:100%; border-collapse:collapse; font-size:13px}
 table.simple th, table.simple td{padding:7px 9px; border-bottom:1px solid var(--line); text-align:left}
 table.simple th{color:var(--muted); font-weight:700; font-size:11.5px; text-transform:uppercase; letter-spacing:.02em}
 table.simple tr:hover td{background:#fafbfe}
+.sortable-th:hover{color:var(--brand)!important}
+#tblFullData tr:hover td{box-shadow:inset 0 0 0 1.5px rgba(36,84,255,.25)}
+/* Tabela completa: cabecalho e coluna Escola fixos (sticky) */
+#tblFullData-wrap{max-height:70vh;overflow:auto;border-radius:8px;border:1px solid var(--line)}
+#tblFullData{border-collapse:separate;border-spacing:0}
+#tblFullData thead th{position:sticky;top:0;z-index:2;background:#fff;border-bottom:2px solid var(--line)!important}
+#tblFullData .sticky-col{position:sticky;left:0;z-index:1;background:#fff}
+#tblFullData thead th.sticky-col{z-index:3}
+#tblFullData .sticky-col::after{content:'';position:absolute;top:0;right:0;bottom:0;width:6px;background:linear-gradient(to right,rgba(0,0,0,.06),transparent);pointer-events:none}
+#tblFullData thead th::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:6px;background:linear-gradient(to bottom,rgba(0,0,0,.06),transparent);pointer-events:none}
+#tblFullData thead th.sticky-col::after{background:linear-gradient(to right,rgba(0,0,0,.06),transparent),linear-gradient(to bottom,rgba(0,0,0,.06),transparent)}
 
 .heatmap-table{border-collapse:collapse; font-size:12px; width:100%}
 .heatmap-table th{font-size:11px; padding:6px; color:var(--muted); text-align:left; vertical-align:bottom}
@@ -247,6 +271,7 @@ table.simple tr:hover td{background:#fafbfe}
     <button data-view="correlacoes">Correlações</button>
     <button data-view="diferenca_medias">Diferença de Médias</button>
     <button data-view="matriz_riscos">Matriz de Riscos</button>
+    <button data-view="indices_externos">Índices Externos</button>
   </div>
 
   <div class="filters" id="filtersWrap"></div>
@@ -263,6 +288,7 @@ table.simple tr:hover td{background:#fafbfe}
     <div class="view" id="view-correlacoes"></div>
     <div class="view" id="view-diferenca_medias"></div>
     <div class="view" id="view-matriz_riscos"></div>
+    <div class="view" id="view-indices_externos"></div>
   </main>
 </div>
 
@@ -1081,7 +1107,8 @@ if (typeof module !== "undefined") {
     filters: {},           // { demoKey: [valores selecionados] }
     filtered: null,        // linhas processadas após filtro
     activeView: "overview",
-    charts: {}             // registry de instâncias Chart.js por canvas id, p/ destruir ao re-renderizar
+    charts: {},             // registry de instâncias Chart.js por canvas id, p/ destruir ao re-renderizar
+    externalData: null      // dados da planilha de índices externos por escola
   };
 
   const $ = (sel, ctx) => (ctx || document).querySelector(sel);
@@ -1369,31 +1396,148 @@ if (typeof module !== "undefined") {
     const wrap = $("#filtersWrap");
     wrap.innerHTML = "";
     const filterCols = CONFIG.DEMO_COLUMNS.filter(c => c.filterable);
+
+    // Fecha todos os dropdowns ao clicar fora
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.f-group')) {
+        wrap.querySelectorAll('.ms-dropdown.open').forEach(d => d.classList.remove('open'));
+      }
+    });
+
     filterCols.forEach(c => {
       const opts = uniqueSorted(State.processedRows, c.key);
       const group = document.createElement("div");
       group.className = "f-group";
-      group.innerHTML = `<label>${c.label}</label><select multiple size="1" data-key="${c.key}"></select>`;
-      wrap.appendChild(group);
-    });
-    // usar selects simples (dropdown "Todos" + múltiplos via checkboxes seria mais custoso); optamos por <select> nativo múltiplo compacto
-    $$("#filtersWrap select").forEach(sel => {
-      const key = sel.dataset.key;
-      const opts = uniqueSorted(State.processedRows, key);
-      sel.multiple = false;
-      sel.innerHTML = `<option value="">Todas / Todos</option>` + opts.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join("");
-      sel.addEventListener("change", () => {
-        const v = sel.value;
-        if (v) State.filters[key] = [v]; else delete State.filters[key];
+
+      const lbl = document.createElement("div");
+      lbl.style.cssText = 'font-size:11.5px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin-bottom:4px';
+      lbl.textContent = c.label;
+      group.appendChild(lbl);
+
+      // Botao trigger
+      const trigger = document.createElement('div');
+      trigger.className = 'ms-trigger';
+      trigger.textContent = 'Todas / Todos';
+      group.appendChild(trigger);
+
+      // Dropdown com checkboxes
+      const dropdown = document.createElement('div');
+      dropdown.className = 'ms-dropdown';
+
+      // Checkbox "Todos"
+      const allLabel = document.createElement('label');
+      const allCb = document.createElement('input');
+      allCb.type = 'checkbox'; allCb.checked = true;
+      allCb.dataset.value = '__all__';
+      const allSpan = document.createElement('span');
+      allSpan.textContent = 'Todas / Todos';
+      allLabel.append(allCb, allSpan);
+      dropdown.appendChild(allLabel);
+
+      // Checkboxes por opcao
+      const checkboxes = [];
+      opts.forEach(o => {
+        const label = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.value = o;
+        const span = document.createElement('span');
+        span.textContent = o;
+        label.append(cb, span);
+        dropdown.appendChild(label);
+        checkboxes.push(cb);
+      });
+
+      // Botoes de acao (selecionar todos / limpar)
+      const actions = document.createElement('div');
+      actions.className = 'ms-actions';
+      const btnAll = document.createElement('button');
+      btnAll.textContent = 'Selecionar todas';
+      btnAll.type = 'button';
+      btnAll.addEventListener('click', (e) => {
+        e.stopPropagation();
+        allCb.checked = true;
+        checkboxes.forEach(cb => cb.checked = true);
+        delete State.filters[c.key];
+        updateTrigger();
         applyFiltersAndRender();
       });
+      const btnNone = document.createElement('button');
+      btnNone.textContent = 'Limpar';
+      btnNone.type = 'button';
+      btnNone.addEventListener('click', (e) => {
+        e.stopPropagation();
+        allCb.checked = false;
+        checkboxes.forEach(cb => cb.checked = false);
+        delete State.filters[c.key];
+        updateTrigger();
+        applyFiltersAndRender();
+      });
+      actions.append(btnAll, btnNone);
+      dropdown.appendChild(actions);
+      group.appendChild(dropdown);
+      wrap.appendChild(group);
+
+      function updateTrigger() {
+        const selected = checkboxes.filter(cb => cb.checked);
+        if (selected.length === 0) {
+          trigger.textContent = 'Nenhuma';
+          trigger.className = 'ms-trigger';
+        } else if (selected.length === checkboxes.length) {
+          trigger.textContent = 'Todas / Todos';
+          trigger.className = 'ms-trigger';
+        } else {
+          const names = selected.map(cb => cb.value);
+          // Se cabem no trigger, mostra nomes; senao mostra contador
+          const text = names.length <= 2 ? names.join(', ') : names.slice(0, 2).join(', ') + '...';
+          trigger.innerHTML = escapeHtml(text) + '<span class="ms-count">' + selected.length + '</span>';
+          trigger.className = 'ms-trigger has-selection';
+        }
+        // Atualiza checkbox "Todos"
+        allCb.checked = selected.length === checkboxes.length;
+      }
+
+      function syncFilter() {
+        const selected = checkboxes.filter(cb => cb.checked).map(cb => cb.value);
+        if (selected.length === 0 || selected.length === checkboxes.length) {
+          delete State.filters[c.key];
+        } else {
+          State.filters[c.key] = selected;
+        }
+        updateTrigger();
+        applyFiltersAndRender();
+      }
+
+      // Toggle dropdown
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const wasOpen = dropdown.classList.contains('open');
+        wrap.querySelectorAll('.ms-dropdown.open').forEach(d => d.classList.remove('open'));
+        if (!wasOpen) dropdown.classList.add('open');
+      });
+
+      // Checkbox "Todos"
+      allCb.addEventListener('change', () => {
+        checkboxes.forEach(cb => cb.checked = allCb.checked);
+        syncFilter();
+      });
+
+      // Checkboxes individuais
+      checkboxes.forEach(cb => {
+        cb.addEventListener('change', () => {
+          allCb.checked = checkboxes.every(c => c.checked);
+          syncFilter();
+        });
+      });
     });
+
+    // Botao Limpar todos os filtros
     const clearBtn = document.createElement("button");
     clearBtn.className = "btn secondary";
     clearBtn.textContent = "Limpar filtros";
     clearBtn.addEventListener("click", () => {
       State.filters = {};
-      $$("#filtersWrap select").forEach(s => s.value = "");
+      wrap.querySelectorAll('.ms-dropdown input[type=checkbox]').forEach(cb => { cb.checked = true; });
+      wrap.querySelectorAll('.ms-trigger').forEach(t => { t.textContent = 'Todas / Todos'; t.className = 'ms-trigger'; });
       applyFiltersAndRender();
     });
     wrap.appendChild(clearBtn);
@@ -1436,6 +1580,7 @@ if (typeof module !== "undefined") {
       case "correlacoes": renderCorrelacoes(rows); break;
       case "diferenca_medias": renderDiferencaMedias(rows); break;
       case "matriz_riscos": renderMatrizRiscos(rows); break;
+      case "indices_externos": renderIndicesExternos(rows); break;
     }
   }
 
@@ -1444,7 +1589,137 @@ if (typeof module !== "undefined") {
     $("#dashScreen").style.display = "block";
     const n = State.processedRows.length;
     $("#respCount").textContent = n.toLocaleString("pt-BR");
+    loadExternalData();
     applyFiltersAndRender();
+  }
+
+  // ---------------------------------------------------------------------
+  // Carregamento automatico da planilha de Indices Externos
+  // ---------------------------------------------------------------------
+  const EXTERNAL_SHEET_ID = "1sOz4xxH5_-7hAxfEaJYlumaBOpMbBT88DL6hQUVKbTI";
+  const EXTERNAL_CSV_URL = `https://docs.google.com/spreadsheets/d/${EXTERNAL_SHEET_ID}/export?format=csv&gid=0`;
+
+  async function loadExternalData() {
+    try {
+      let loaded = false;
+      try {
+        const text = await fetchText(EXTERNAL_CSV_URL);
+        parseExternalCsv(text);
+        loaded = true;
+      } catch (fetchErr) {
+        console.warn("Falha ao buscar planilha externa via fetch, tentando JSONP:", fetchErr);
+      }
+      if (!loaded) {
+        const { headers, rows } = await fetchViaGvizJsonp(EXTERNAL_SHEET_ID, "0");
+        if (headers.length && rows.length) {
+          parseExternalRows(headers, rows);
+          loaded = true;
+        }
+      }
+      if (loaded) console.log("[Dashboard] Planilha de indices externos carregada:", State.externalData ? State.externalData.length : 0, "escolas.");
+    } catch (err) {
+      console.warn("[Dashboard] Nao foi possivel carregar a planilha de indices externos:", err);
+    }
+  }
+
+  function parseBrNumber(s) {
+    if (s === null || s === undefined || s === "" || s === "-") return NaN;
+    let str = String(s).trim();
+    // Se ja e um inteiro puro, retorna diretamente
+    if (/^-?\d+$/.test(str)) return Number(str);
+    const hasDot = str.includes('.');
+    const hasComma = str.includes(',');
+    if (hasDot && hasComma) {
+      // Ambos separadores: determina formato pela posicao do ultimo
+      const lastDot = str.lastIndexOf('.');
+      const lastComma = str.lastIndexOf(',');
+      if (lastComma > lastDot) {
+        // BR: 1.234,56 → remove pontos (milhar) → 1234,56 → 1234.56
+        str = str.replace(/\./g, '').replace(',', '.');
+      } else {
+        // US: 1,234.56 → remove virgulas (milhar) → 1234.56
+        str = str.replace(/,/g, '');
+      }
+    } else if (hasComma) {
+      // Apenas virgula: pode ser decimal (6,2 / 0,9317) ou milhar (1,234)
+      const parts = str.split(',');
+      if (parts.length === 2 && parts[1].length === 3 && /^\d+$/.test(parts[1]) && /^\d{1,3}$/.test(parts[0])) {
+        // Provavelmente separador de milhar: 1,234 → 1234
+        str = str.replace(/,/g, '');
+      } else {
+        // Decimal: 6,2 → 6.2 ou 0,9317 → 0.9317
+        str = str.replace(',', '.');
+      }
+    }
+    // Apenas ponto ou sem separador: mantem como esta (formato internacional)
+    const num = Number(str);
+    return isNaN(num) ? NaN : num;
+  }
+
+  function parseExternalCsv(text) {
+    const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+    const rows = parsed.data.filter(r => Object.values(r).some(v => v !== "" && v !== null && v !== undefined));
+    parseExternalRows(parsed.meta.fields || [], rows);
+  }
+
+  // Normalizacao que remove diacriticos para casamento robusto de cabecalhos
+  function normExt(s) {
+    return Engine.norm(s)
+      .replace(/[áàâãä]/g, 'a').replace(/[éèêë]/g, 'e').replace(/[íìîï]/g, 'i')
+      .replace(/[óòôõö]/g, 'o').replace(/[úùûü]/g, 'u').replace(/[çć]/g, 'c')
+      .replace(/[ºª]/g, function(m) { return m === 'º' ? 'o' : 'a'; });
+  }
+
+  function parseExternalRows(headers, rows) {
+    const COL_MAP = {
+      escola: "Unidade Escolar",
+      qtdAlunos: "Quantidade de Alunos Anos Finais (2026)",
+      ideb: "IDEB (2025)",
+      saebPortugues: "SAEB 9o Ano Portugues (2025)",
+      saebMatematica: "SAEB 9o Ano Matematica (2025)",
+      freqMedia: "Frequencia Percentual Media dos Alunos (2026)",
+      pctFreqBaixa: "Percentual de Alunos com Frequencia Menor que 75% (2026)",
+      apoias: "APOIAs em Andamento (2026)",
+      riscoAbandono: "Alunos em Risco de Abandono (2026)"
+    };
+    // Cria mapa normalizado (sem diacriticos) para casar cabecalhos
+    const hIdx = {};
+    headers.forEach(h => { hIdx[normExt(h)] = h; });
+    function findCol(key) {
+      const n = normExt(COL_MAP[key]);
+      if (hIdx[n]) return hIdx[n];
+      // fallback: substring
+      const found = Object.keys(hIdx).find(k => k.includes(n.slice(0, 20)) || n.includes(k.slice(0, 20)));
+      return found ? hIdx[found] : null;
+    }
+    const cols = {};
+    Object.keys(COL_MAP).forEach(k => { cols[k] = findCol(k); });
+
+    State.externalData = rows.map(r => ({
+      escola: cols.escola ? String(r[cols.escola]).trim() : "",
+      qtdAlunos: parseBrNumber(cols.qtdAlunos ? r[cols.qtdAlunos] : ""),
+      ideb: parseBrNumber(cols.ideb ? r[cols.ideb] : ""),
+      saebPortugues: parseBrNumber(cols.saebPortugues ? r[cols.saebPortugues] : ""),
+      saebMatematica: parseBrNumber(cols.saebMatematica ? r[cols.saebMatematica] : ""),
+      freqMedia: parseBrNumber(cols.freqMedia ? r[cols.freqMedia] : ""),
+      pctFreqBaixa: parseBrNumber(cols.pctFreqBaixa ? r[cols.pctFreqBaixa] : ""),
+      apoias: parseBrNumber(cols.apoias ? r[cols.apoias] : ""),
+      riscoAbandono: parseBrNumber(cols.riscoAbandono ? r[cols.riscoAbandono] : "")
+    })).filter(d => d.escola);
+
+    // Colunas percentuais: se os valores estiverem como proporcao (0-1),
+    // converter para porcentagem (0-100) para exibicao e comparacao corretas
+    var pctCols = ['freqMedia', 'pctFreqBaixa'];
+    pctCols.forEach(function(key) {
+      var vals = State.externalData.map(function(d) { return d[key]; }).filter(function(v) { return !isNaN(v); });
+      if (vals.length) {
+        var med = Engine.median(vals);
+        if (med !== null && med > 0 && med <= 1) {
+          State.externalData.forEach(function(d) { if (!isNaN(d[key])) d[key] = d[key] * 100; });
+          console.log('[Dashboard] Coluna externa ' + key + ' convertida de proporcao para porcentagem (×100).');
+        }
+      }
+    });
   }
 
   // ---------------------------------------------------------------------
@@ -2371,18 +2646,17 @@ if (typeof module !== "undefined") {
   function indexCardHtml(idxId, rows, customSub) {
     const def = indexDef(idxId);
     const agg = Engine.aggregateIndex(rows, idxId);
-    const color = colorForValue(agg.mean, def.direction);
-    const label = levelLabel(agg.mean, def.direction);
+    const rl = riskLevel(agg.mean, def.direction);
     const subText = customSub || (def.direction === "risk" ? "Índice de risco (0-100)" : "Índice (0-100, maior = mais favorável)") + " · n=" + agg.n;
     return `
       <div class="card">
         <h3>${def.label} <span class="info-icon" title="${escapeHtml(def.desc || "")}">i</span></h3>
         <div class="sub">${subText}</div>
-        <div class="kpi"><div class="value" style="color:${color}">${fmt1(agg.mean)}</div></div>
+        <div class="kpi"><div class="value" style="color:${rl.color}">${fmt1(agg.mean)}</div></div>
         <div style="background:#eef1f6;border-radius:8px;height:10px;overflow:hidden;margin:8px 0 6px">
-          <div style="width:${agg.mean || 0}%;height:100%;background:${color}"></div>
+          <div style="width:${agg.mean || 0}%;height:100%;background:${rl.color}"></div>
         </div>
-        <span class="pill ${label.includes('Alto') && def.direction!=='risk' ? 'good' : (label.includes('risco') && !label.includes('Baixo') ? 'bad' : (label.includes('Baixo') && def.direction==='risk' ? 'good': (label==='Médio'||label.includes('moderado')?'warn':'bad')))}">${label}</span>
+        <span class="pill ${rl.css}">${rl.level}</span>
       </div>`;
   }
 
@@ -3956,8 +4230,6 @@ if (typeof module !== "undefined") {
     }).filter(Boolean);
 
     // ---- Render ----
-    // CSS extra inline para laranja
-    const riskPillStyle = `<style>.pill.warn2{background:#fef3e2;color:#ed8936}</style>`;
 
     // Card de construto individual
     function riskCard(item) {
@@ -4059,7 +4331,7 @@ if (typeof module !== "undefined") {
     }
 
     // Monta o HTML
-    let html = riskPillStyle;
+    let html = '';
     html += `<div class="section-title">Matriz de Riscos</div>`;
     html += `<div class="section-desc">Panorama geral dos construtos com índice na escala 0–100 e classificação de risco. Faixas: <span style="color:#1aa06d;font-weight:700">● Baixo</span> (76–100 favorável / 0–25 risco), <span style="color:#e0a715;font-weight:700">● Moderado</span> (51–75 / 26–50), <span style="color:#ed8936;font-weight:700">● Elevado</span> (26–50 / 51–75), <span style="color:#e0483d;font-weight:700">● Crítico</span> (0–25 favorável / 76–100 risco).</div>`;
 
@@ -4097,6 +4369,629 @@ if (typeof module !== "undefined") {
     html += schoolBreakdownSection();
 
     el.innerHTML = html;
+  }
+
+  // ---------------------------------------------------------------------
+  // ÍNDICES EXTERNOS — Correlações clima escolar × indicadores da rede
+  // ---------------------------------------------------------------------
+  // Construtos de clima para correlacao ao nivel da escola
+  const EXT_CORR_INDICES = [
+    { id: "rel_professor_estudante", label: "Relações Professor-Estudante", short: "Prof-Estudante" },
+    { id: "rel_estudante_estudante", label: "Relações Estudante-Estudante", short: "Aluno-Aluno" },
+    { id: "seguranca_escolar", label: "Segurança Escolar", short: "Segurança" },
+    { id: "justica_clareza_regras", label: "Justiça e Clareza das Regras", short: "Regras" },
+    { id: "engajamento_escolar_rede", label: "Engajamento Estudantil (coletivo)", short: "Engaj. Coletivo" },
+    { id: "bullying_escolar", label: "Bullying Escolar", short: "Bullying" },
+    { id: "engaj_cognitivo_comportamental", label: "Engajamento Cognitivo-Comportamental", short: "Engaj. Cognitivo" },
+    { id: "engaj_emocional", label: "Engajamento Emocional", short: "Engaj. Emocional" },
+    { id: "pertencimento_escolar", label: "Sentimento de Pertencimento", short: "Pertencimento" },
+    { id: "mentalidade_crescimento", label: "Mentalidade de Crescimento", short: "Mentalidade" },
+    { id: "suporte_familiar", label: "Suporte Familiar", short: "Suporte Familiar" },
+    { id: "conexao_pais", label: "Conexão com os Pais", short: "Conexão Pais" },
+    { id: "sofrimento_psiquico", label: "Saúde Mental (Sofr. Psíq.)", short: "Saúde Mental" }
+  ];
+
+  // Indicadores externos
+  const EXT_INDICATORS = [
+    { key: "ideb", label: "IDEB (2025)", short: "IDEB", direction: "positive", unit: "" },
+    { key: "saebPortugues", label: "SAEB 9º Ano Português (2025)", short: "SAEB Port.", direction: "positive", unit: "" },
+    { key: "saebMatematica", label: "SAEB 9º Ano Matemática (2025)", short: "SAEB Mat.", direction: "positive", unit: "" },
+    { key: "freqMedia", label: "Frequência Percentual Média (2026)", short: "Frequência", direction: "positive", unit: "%" },
+    { key: "pctFreqBaixa", label: "% Alunos com Frequência < 75% (2026)", short: "% Freq. < 75%", direction: "risk", unit: "%" },
+    { key: "apoias", label: "APOIAs em Andamento (2026)", short: "APOIAs", direction: "risk", unit: "" },
+    { key: "riscoAbandono", label: "Alunos em Risco de Abandono (2026)", short: "Risco Aband.", direction: "risk", unit: "" }
+  ];
+
+  function renderIndicesExternos(rows) {
+    const el = $("#view-indices_externos");
+
+    // Verifica dados externos
+    if (!State.externalData || !State.externalData.length) {
+      el.innerHTML = `
+        <div class="section-title">Índices Externos</div>
+        <div class="card">
+          <div class="empty-note">
+            <p><b>Carregando dados externos...</b></p>
+            <p>A planilha de índices externos (IDEB, SAEB, frequência, APOIAs, risco de abandono) está sendo carregada automaticamente.</p>
+            <p>Se os dados não aparecerem em alguns instantes, verifique sua conexão com a internet e recarregue a página.</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // --- Calcula medias por escola para todos os construtos ---
+    const schoolsInSurvey = [...new Set(rows.map(r => r.demo.escola).filter(Boolean))];
+    const schoolClimateMeans = {};
+    EXT_CORR_INDICES.forEach(ci => {
+      schoolClimateMeans[ci.id] = {};
+      schoolsInSurvey.forEach(s => {
+        const subset = rows.filter(r => r.demo.escola === s);
+        const m = meanOf(subset, ci.id);
+        if (m !== null) schoolClimateMeans[ci.id][s] = m;
+      });
+    });
+
+    // --- Casamento escola a escola entre clima e dados externos ---
+    // Tenta casar por nome exato, depois por substring
+    function matchSchool(surveyName) {
+      const norm = (s) => Engine.norm(s);
+      const sNorm = norm(surveyName);
+      // Exato
+      let ext = State.externalData.find(d => norm(d.escola) === sNorm);
+      if (ext) return ext;
+      // Substring: o nome da pesquisa contem o nome externo ou vice-versa
+      ext = State.externalData.find(d => sNorm.includes(norm(d.escola)) || norm(d.escola).includes(sNorm));
+      return ext || null;
+    }
+
+    // Dados pareados: array de { escola, climateMeans: {idxId: mean}, ext: {key: value} }
+    const paired = [];
+    schoolsInSurvey.forEach(s => {
+      const ext = matchSchool(s);
+      if (!ext) return;
+      const climateMeans = {};
+      let hasClimate = false;
+      EXT_CORR_INDICES.forEach(ci => {
+        const m = schoolClimateMeans[ci.id][s];
+        if (m !== null && m !== undefined) { climateMeans[ci.id] = m; hasClimate = true; }
+      });
+      if (!hasClimate) return;
+      paired.push({ escola: s, climateMeans, ext });
+    });
+
+    const nPaired = paired.length;
+    const nExternal = State.externalData.length;
+    const nSurveySchools = schoolsInSurvey.length;
+
+    // KPIs
+    const extWithId = paired.filter(p => !isNaN(p.ext.ideb));
+    const meanId = extWithId.length ? Math.floor((extWithId.reduce((a, p) => a + p.ext.ideb, 0) / extWithId.length) * 10) / 10 : null;
+    const meanFreq = paired.length ? paired.reduce((a, p) => a + (isNaN(p.ext.freqMedia) ? 0 : p.ext.freqMedia), 0) / paired.filter(p => !isNaN(p.ext.freqMedia)).length : null;
+    const totalApoias = paired.reduce((a, p) => a + (isNaN(p.ext.apoias) ? 0 : p.ext.apoias), 0);
+    const totalRisco = paired.reduce((a, p) => a + (isNaN(p.ext.riscoAbandono) ? 0 : p.ext.riscoAbandono), 0);
+
+    // --- Correlacoes de Spearman (nivel da escola) ---
+    function schoolSpearman(climateId, extKey) {
+      const a = [], b = [];
+      paired.forEach(p => {
+        const cv = p.climateMeans[climateId];
+        const ev = p.ext[extKey];
+        if (cv !== null && cv !== undefined && !isNaN(ev)) { a.push(cv); b.push(ev); }
+      });
+      return { r: Engine.spearman(a, b), n: a.length };
+    }
+
+    // Significancia aproximada para Spearman (n >= 4)
+    // Usando aproximacao t = r * sqrt((n-2)/(1-r^2)) com df = n-2
+    function spearmanSig(r, n) {
+      if (r === null || n < 4) return null;
+      const t = r * Math.sqrt((n - 2) / (1 - r * r));
+      const df = n - 2;
+      // p-valor bicaudal via approximacao normal para t grande, senao CDF t
+      // Simplificacao: usa CDF normal como aproximacao
+      const p = 2 * (1 - Engine.normalCDF(Math.abs(t)));
+      return { t, df, p: Math.min(p, 1) };
+    }
+
+    function fmtR(r) { return r === null || isNaN(r) ? "—" : r.toFixed(3).replace('.', ','); }
+    function fmtPVal(p) {
+      if (p === null || p === undefined || isNaN(p)) return "—";
+      if (p < 0.001) return "< 0,001";
+      return p.toFixed(3).replace('.', ',');
+    }
+    function starStr(p) {
+      if (p === null || p === undefined) return "";
+      if (p < 0.001) return "***";
+      if (p < 0.01) return "**";
+      if (p < 0.05) return "*";
+      return "";
+    }
+
+    // --- Constroi heatmap de correlacoes ---
+    let heatmapHtml = '<table class="heatmap-table"><thead><tr><th style="min-width:160px"></th>';
+    EXT_INDICATORS.forEach(ind => { heatmapHtml += `<th>${ind.short}</th>`; });
+    heatmapHtml += "</tr></thead><tbody>";
+
+    // Armazena correlacoes para interpretacao
+    const allCorrs = [];
+    EXT_CORR_INDICES.forEach(ci => {
+      heatmapHtml += `<tr><th>${ci.short}</th>`;
+      EXT_INDICATORS.forEach(ind => {
+        const { r, n } = schoolSpearman(ci.id, ind.key);
+        const sig = spearmanSig(r, n);
+        const bg = r === null ? "#eef1f6" : heatColor(Math.max(-1, Math.min(1, r)));
+        const stars = starStr(sig ? sig.p : null);
+        const title = `${ci.label} × ${ind.label}: ρ = ${fmtR(r)}; n = ${n}${sig ? "; p = " + fmtPVal(sig.p) : ""}${stars ? " (" + stars + ")" : ""}`;
+        heatmapHtml += `<td><div class="heatmap-cell" style="background:${bg}" title="${escapeHtml(title)}">${fmtR(r)}${stars ? " " + stars : ""}</div></td>`;
+        if (r !== null) allCorrs.push({ climate: ci.id, climateLabel: ci.short, ext: ind.key, extLabel: ind.short, r, p: sig ? sig.p : null, n, extDir: ind.direction });
+      });
+      heatmapHtml += "</tr>";
+    });
+    heatmapHtml += "</tbody></table>";
+
+    // --- Identifica correlacoes mais fortes e significativas ---
+    const sigCorrs = allCorrs.filter(c => c.p !== null && c.p < 0.05).sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
+    const strongestPos = [...sigCorrs].filter(c => {
+      // Para direction positive do indicador externo, correlacao positiva e boa;
+      // Para direction risk, correlacao negativa e boa (mais clima = menos risco)
+      return c.extDir === "positive" ? c.r > 0 : c.r < 0;
+    }).sort((a, b) => Math.abs(b.r) - Math.abs(a.r)).slice(0, 5);
+    const strongestNeg = [...sigCorrs].filter(c => {
+      return c.extDir === "positive" ? c.r < 0 : c.r > 0;
+    }).sort((a, b) => Math.abs(b.r) - Math.abs(a.r)).slice(0, 5);
+
+    // --- Tabela completa de dados pareados ---
+    function buildFullTable() {
+      // --- Computa faixa (min/max) por coluna para heatmap ---
+      const colDefs = [];
+      EXT_CORR_INDICES.forEach(ci => {
+        const vals = paired.map(p => p.climateMeans[ci.id]).filter(v => v !== null && v !== undefined);
+        colDefs.push({ key: 'c_' + ci.id, label: ci.short, min: vals.length ? Math.min(...vals) : 0, max: vals.length ? Math.max(...vals) : 100, dir: 'positive', type: 'climate' });
+      });
+      EXT_INDICATORS.forEach(ind => {
+        const vals = paired.map(p => p.ext[ind.key]).filter(v => !isNaN(v));
+        colDefs.push({ key: 'e_' + ind.key, label: ind.short, min: vals.length ? Math.min(...vals) : 0, max: vals.length ? Math.max(...vals) : 100, dir: ind.direction, type: 'ext', unit: ind.unit });
+      });
+
+      // --- Funcao de cor heatmap (cores claras para legibilidade) ---
+      function cellBg(value, col) {
+        if (value === null || value === undefined || isNaN(value)) return '';
+        const range = col.max - col.min;
+        if (range === 0) return 'background:rgba(128,128,128,.06)';
+        let t = (value - col.min) / range; // 0 a 1
+        // Para risk: inverter (maior valor = pior = mais vermelho)
+        if (col.dir === 'risk') t = 1 - t;
+        // Interpola: vermelho (t=0) -> neutro (t=0.5) -> verde (t=1)
+        let r, g, b;
+        if (t < 0.5) {
+          const s = t / 0.5;
+          r = Math.round(255 - 65 * s); // 255 -> 190
+          g = Math.round(220 + 25 * s); // 220 -> 245
+          b = Math.round(220 + 25 * s); // 220 -> 245
+        } else {
+          const s = (t - 0.5) / 0.5;
+          r = Math.round(190 - 140 * s); // 190 -> 50
+          g = Math.round(245 - 10 * s);  // 245 -> 235
+          b = Math.round(245 - 135 * s); // 245 -> 110
+        }
+        return `background:rgba(${r},${g},${b},.45)`;
+      }
+
+      // --- Estado de ordenacao ---
+      let sortCol = null; // indice da colDef
+      let sortAsc = true;
+
+      function renderRows() {
+        let rows = paired.map((p, idx) => {
+          const vals = {};
+          vals['_escola'] = p.escola;
+          vals['_idx'] = idx;
+          EXT_CORR_INDICES.forEach(ci => { vals['c_' + ci.id] = p.climateMeans[ci.id] !== undefined ? p.climateMeans[ci.id] : null; });
+          EXT_INDICATORS.forEach(ind => { vals['e_' + ind.key] = isNaN(p.ext[ind.key]) ? null : p.ext[ind.key]; });
+          return vals;
+        });
+
+        if (sortCol !== null) {
+ rows.sort((a, b) => {
+ const va = a[sortCol], vb = b[sortCol];
+ // Nulos sempre por ultimo
+ if (va === null && vb === null) return 0;
+ if (va === null) return 1;
+ if (vb === null) return -1;
+ const cmp = va - vb;
+ return sortAsc ? cmp : -cmp;
+ });
+        }
+
+        return rows.map(row => {
+          const tds = colDefs.map(col => {
+            const v = row[col.key];
+            if (v === null || v === undefined) return '<td style="text-align:center;color:var(--muted)">—</td>';
+            const bg = cellBg(v, col);
+            const txt = col.unit === '%' ? fmtPct(v) : fmt1(v);
+            return `<td style="text-align:center;${bg}">${txt}</td>`;
+          }).join('');
+          const escola = row['_escola'];
+          return `<tr><td class="sticky-col" style="font-weight:600;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(escola)}">${escapeHtml(escola)}</td>${tds}</tr>`;
+        }).join('');
+      }
+
+      // --- Constroi HTML ---
+      const ths = colDefs.map((col, i) => {
+        const arrow = sortCol === col.key ? (sortAsc ? ' ▲' : ' ▼') : '';
+        return `<th class="sortable-th" data-col="${col.key}" data-idx="${i}" style="cursor:pointer;user-select:none;white-space:nowrap">${col.label}${arrow}</th>`;
+      }).join('');
+
+      const html = `
+        <div class="card" style="margin-top:16px">
+          <h3>Dados completos por escola</h3>
+          <div class="sub">Médias dos construtos de clima (0–100) e indicadores externos da Secretaria de Educação. Apenas escolas com dados em ambas as fontes (${nPaired} de ${nSurveySchools} escolas da pesquisa; ${nExternal} na planilha externa). Clique no cabeçalho de qualquer coluna para ordenar.</div>
+          <div id="tblFullData-wrap">
+          <table class="simple" style="margin-top:10px;font-size:11.5px" id="tblFullData">
+            <thead><tr><th class="sticky-col" style="cursor:default;min-width:200px">Escola</th>${ths}</tr></thead>
+            <tbody>${renderRows()}</tbody>
+          </table>
+          </div>
+        </div>`;
+
+      // Retorna HTML e funcao para ativar ordenacao apos insercao no DOM
+      return { html, setup() {
+        const table = document.getElementById('tblFullData');
+        if (!table) return;
+        table.querySelectorAll('.sortable-th').forEach(th => {
+          th.addEventListener('click', () => {
+            const key = th.dataset.col;
+            if (sortCol === key) {
+              sortAsc = !sortAsc;
+            } else {
+              sortCol = key;
+              sortAsc = true;
+            }
+            // Atualiza setas nos cabecalhos
+            table.querySelectorAll('.sortable-th').forEach(h => {
+              h.textContent = colDefs[+h.dataset.idx].label;
+            });
+            th.textContent = colDefs[+th.dataset.idx].label + (sortAsc ? ' ▲' : ' ▼');
+            // Re-renderiza apenas o tbody
+            table.querySelector('tbody').innerHTML = renderRows();
+          });
+        });
+      }};
+    }
+
+    // --- Opcoes para select de scatter ---
+    const scatterClimateOpts = EXT_CORR_INDICES.map(ci => `<option value="${ci.id}">${ci.label}</option>`).join("");
+    const scatterExtOpts = EXT_INDICATORS.map(ind => `<option value="${ind.key}">${ind.label}</option>`).join("");
+
+    // --- Sintese ---
+    const nSigTotal = sigCorrs.length;
+    const nTotalPairs = allCorrs.length;
+    const sigPct = nTotalPairs ? (nSigTotal / nTotalPairs * 100) : 0;
+
+    // Conta quantas correlacoes seguem a direcao esperada (positiva com positive, negativa com risk)
+    const expectedDirCorrs = allCorrs.filter(c => {
+      if (c.extDir === "positive") return c.r > 0;
+      return c.r < 0;
+    });
+    const expectedDirSig = expectedDirCorrs.filter(c => c.p !== null && c.p < 0.05);
+
+    let synText = `A análise de correlações entre os construtos da Escala Delaware de Clima Escolar e os indicadores educacionais da Secretaria de Educação foi conduzida ao nível da escola (n = ${nPaired} unidades de ensino com dados pareados), utilizando o coeficiente de correlação por postos de Spearman (ρ). Das ${nTotalPairs} combinações analisadas entre ${EXT_CORR_INDICES.length} dimensões de clima e ${EXT_INDICATORS.length} indicadores externos, ${nSigTotal} (${fmtPct(sigPct)}) apresentaram correlação estatisticamente significativa (p < 0,05).`;
+
+    if (strongestPos.length > 0) {
+      synText += ` As associações mais robustas na direção esperada — ou seja, climas escolares mais favoráveis associados a melhores indicadores — foram: ${strongestPos.map((c, i) => `<b>${c.climateLabel} × ${c.extLabel}</b> (ρ = ${fmtR(c.r)}, p ${fmtPVal(c.p)})`).join(", ")}.`;
+    }
+    if (strongestNeg.length > 0) {
+      synText += ` Correlações significativas na direção oposta à esperada — que podem indicar variáveis de confusão ou efeitos mediadores — foram observadas em: ${strongestNeg.map((c, i) => `<b>${c.climateLabel} × ${c.extLabel}</b> (ρ = ${fmtR(c.r)}, p ${fmtPVal(c.p)})`).join(", ")}.`;
+    }
+
+    synText += ` Estes achados são consistentes com a literatura internacional que documenta associações estatisticamente significativas entre clima escolar e desempenho acadêmico (Laranjeira & Bersch, 2019/2020; Bear, Yang & Pasipanodya, 2015), frequência escolar e pertencimento (PISA/OCDE, Students' Well-Being), e evasão (Stearns, Glennie & Bonneau, 2007). Cabe ressaltar que as correlações ao nível agregado (escola) não permitem inferências causais individuais, e variáveis de contexto socioeconômico — como escolaridade materna e NSE — podem atuar como confundidores. A análise controlada por essas variáveis é recomendada para estudos subsequêntes.`;
+
+    // --- MONTA HTML FINAL ---
+    el.innerHTML = `
+      <div class="section-title">Índices Externos <span class="tag">Cruzamento de dados</span></div>
+      <div class="section-desc">Correlações entre os índices de clima escolar (Escala Delaware, média por escola) e indicadores educacionais da Secretaria de Educação de Joinville: IDEB (2025), SAEB 9º Ano — Português e Matemática (2025), frequência escolar, APOIAs e risco de abandono (2026). Fonte dos indicadores externos: planilha da Secretaria de Educação.</div>
+
+      <div class="grid cols-4">
+        ${kpiCard("Escolas pareadas", nPaired + " de " + nSurveySchools, "com dados em ambas as fontes")}
+        ${kpiCard("IDEB médio (2025)", meanId !== null ? fmt1(meanId) : "—", "média das escolas pareadas")}
+        ${kpiCard("Frequência média", meanFreq !== null ? fmtPct(meanFreq) : "—", "frequência percentual média (2026)")}
+        ${kpiCard("Correlações significativas", nSigTotal + " de " + nTotalPairs, fmtPct(sigPct) + " com p < 0,05")}
+      </div>
+
+      <div class="section-title" style="margin-top:28px">Matriz de correlações (Spearman, ρ) <span class="tag">nível da escola</span></div>
+      <div class="section-desc">Cada célula apresenta o coeficiente ρ de Spearman entre a média escolar do construto de clima (linhas) e o indicador externo (colunas). <span style="color:#2454ff;font-weight:700">Azul</span> = associação positiva; <span style="color:#e0483d;font-weight:700">vermelho</span> = associação negativa. * p < 0,05; ** p < 0,01; *** p < 0,001 (bicaudal). A interpretação das direções segue a lógica: para indicadores positivos (IDEB, SAEB, Frequência), correlações positivas com clima são desejáveis; para indicadores de risco (% frequência baixa, APOIAs, Risco Abandono), correlações negativas com clima indicam associação protetiva.</div>
+      <div class="card heatmap-scroll">${heatmapHtml}</div>
+
+      <div class="section-title" style="margin-top:28px">Dispersão: Clima Escolar × Indicador Externo</div>
+      <div class="card">
+        <div class="school-select-row">
+          <label style="font-weight:600;font-size:13px;color:var(--muted)">Construto de clima:</label>
+          <select id="extScatterClimate">${scatterClimateOpts}</select>
+          <label style="font-weight:600;font-size:13px;color:var(--muted);margin-left:10px">Indicador externo:</label>
+          <select id="extScatterExt">${scatterExtOpts}</select>
+        </div>
+        <div id="extScatterInfo" class="sub"></div>
+        <div class="chart-wrap tall"><canvas id="chExtScatter"></canvas></div>
+      </div>
+
+      <div class="section-title" style="margin-top:28px">Perfil comparativo: clima × indicadores por escola</div>
+      <div class="section-desc">Selecione uma escola para visualizar seus índices de clima (barras verdes) comparados aos indicadores externos (barras azuis), ambos normalizados para escala 0–100 para permitir comparação visual direta.</div>
+      <div class="card">
+        <div class="school-select-row">
+          <select id="extSchoolSelect">${paired.map(p => escapeHtml(p.escola)).sort((a,b) => a.localeCompare(b, 'pt-BR')).map(e => `<option value="${e}">${e}</option>`).join("")}</select>
+        </div>
+        <div class="chart-wrap tall"><canvas id="chExtSchoolProfile"></canvas></div>
+      </div>
+
+      <div class="section-title" style="margin-top:28px">Ranking de escolas por indicador externo com sobreposição de clima</div>
+      <div class="card">
+        <div class="school-select-row">
+          <label style="font-weight:600;font-size:13px;color:var(--muted)">Indicador:</label>
+          <select id="extRankInd">${EXT_INDICATORS.map(ind => `<option value="${ind.key}">${ind.label}</option>`).join("")}</select>
+          <label style="font-weight:600;font-size:13px;color:var(--muted);margin-left:10px">Sobrepor clima:</label>
+          <select id="extRankClimate">${EXT_CORR_INDICES.map(ci => `<option value="${ci.id}">${ci.label}</option>`).join("")}</select>
+        </div>
+        <div id="extRankWrap"></div>
+      </div>
+
+      <div id="fullTableSlot"></div>
+
+      <div class="card" style="margin-top:20px;background:#f8fafc;border-left:4px solid var(--brand)">
+        <h3>Síntese analítica</h3>
+        <p style="font-size:13.5px;line-height:1.65;color:var(--ink);margin:8px 0 0">${synText}</p>
+      </div>
+
+      <div class="footer-note">Método: correlação de Spearman (ρ) ao nível da escola (médias agregadas por unidade de ensino). Significância: teste t aproximado com df = n − 2. Referências: Laranjeira & Bersch (2019/2020); Bear, Yang & Pasipanodya (2015); PISA/OCDE (Students' Well-Being); Stearns, Glennie & Bonneau (2007); Alves & Soares (2007).</div>
+    `;
+
+    // --- Tabela completa (com heatmap e ordenacao) ---
+    const fullTable = buildFullTable();
+    $("#fullTableSlot").outerHTML = fullTable.html;
+    fullTable.setup();
+
+    // --- SCATTER PLOT ---
+    function drawScatter() {
+      const climateId = $("#extScatterClimate").value;
+      const extKey = $("#extScatterExt").value;
+      const extInd = EXT_INDICATORS.find(i => i.key === extKey);
+      const climateLabel = EXT_CORR_INDICES.find(c => c.id === climateId).label;
+
+      const points = [];
+      paired.forEach(p => {
+        const cv = p.climateMeans[climateId];
+        const ev = p.ext[extKey];
+        if (cv !== null && cv !== undefined && !isNaN(ev)) {
+          points.push({ x: cv, y: ev, escola: p.escola });
+        }
+      });
+
+      const { r, n } = schoolSpearman(climateId, extKey);
+      const sig = spearmanSig(r, n);
+      const dirNote = extInd.direction === "positive"
+        ? "Direção esperada: correlação positiva (mais clima → melhor desempenho)"
+        : "Direção esperada: correlação negativa (mais clima → menos risco)";
+      $("#extScatterInfo").innerHTML = `ρ = ${fmtR(r)} · n = ${n}${sig ? " · <i>p</i> = " + fmtPVal(sig.p) + " " + starStr(sig.p) : ""} · ${dirNote}`;
+
+      // Linha de tendencia (regressao linear simples para visualizacao)
+      if (points.length >= 3) {
+        const mx = Engine.mean(points.map(p => p.x));
+        const my = Engine.mean(points.map(p => p.y));
+        let num = 0, den = 0;
+        points.forEach(p => { num += (p.x - mx) * (p.y - my); den += (p.x - mx) * (p.x - mx); });
+        const slope = den !== 0 ? num / den : 0;
+        const intercept = my - slope * mx;
+        const xMin = Math.min(...points.map(p => p.x));
+        const xMax = Math.max(...points.map(p => p.x));
+
+        makeChart("chExtScatter", {
+          type: "scatter",
+          data: {
+            datasets: [
+              {
+                label: climateLabel + " × " + extInd.label,
+                data: points,
+                backgroundColor: "rgba(36,84,255,.5)",
+                pointRadius: 5,
+                pointHoverRadius: 8
+              },
+              {
+                type: "line",
+                label: "Tendência linear",
+                data: [{ x: xMin, y: slope * xMin + intercept }, { x: xMax, y: slope * xMax + intercept }],
+                borderColor: "rgba(224,72,61,.6)",
+                borderWidth: 2,
+                borderDash: [6, 4],
+                pointRadius: 0,
+                fill: false
+              }
+            ]
+          },
+          options: {
+            ...CHART_DEFAULTS,
+            plugins: {
+              legend: { position: "bottom" },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => {
+                    if (ctx.datasetIndex === 0) {
+                      const pt = ctx.raw;
+                      const yVal = extInd.unit === "%" ? fmtPct(pt.y) : fmt1(pt.y);
+                      return `${pt.escola}: Clima ${fmt1(pt.x)} · ${extInd.short} ${yVal}`;
+                    }
+                    return "";
+                  }
+                }
+              }
+            },
+            scales: {
+              x: { min: 0, max: 100, title: { display: true, text: climateLabel + " (0–100)" } },
+              y: { title: { display: true, text: extInd.label } }
+            }
+          }
+        });
+      } else {
+        makeChart("chExtScatter", {
+          type: "scatter",
+          data: { datasets: [{ label: climateLabel, data: points, backgroundColor: "rgba(36,84,255,.5)" }] },
+          options: { ...CHART_DEFAULTS, plugins: { legend: { display: false } }, scales: { x: { min: 0, max: 100, title: { display: true, text: climateLabel } }, y: { title: { display: true, text: extInd.label } } } }
+        });
+      }
+    }
+    $("#extScatterClimate").addEventListener("change", drawScatter);
+    $("#extScatterExt").addEventListener("change", drawScatter);
+    drawScatter();
+
+    // --- PERFIL COMPARATIVO DA ESCOLA ---
+    // Normaliza indicadores externos para 0-100 para comparacao visual
+    // Para cada indicador, encontra min e max nas escolas pareadas e faz rescaling
+    function normalizeExt(key, val) {
+      const vals = paired.map(p => p.ext[key]).filter(v => !isNaN(v));
+      if (!vals.length) return null;
+      const min = Math.min(...vals);
+      const max = Math.max(...vals);
+      if (max === min) return 50;
+      const dir = EXT_INDICATORS.find(i => i.key === key).direction;
+      let norm = (val - min) / (max - min) * 100;
+      if (dir === "risk") norm = 100 - norm; // inverte para que maior = melhor
+      return norm;
+    }
+
+    function drawSchoolProfile() {
+      const school = $("#extSchoolSelect").value;
+      const pData = paired.find(p => p.escola === school);
+      if (!pData) return;
+
+      const labels = [];
+      const climateData = [];
+      const extDataNorm = [];
+      const extRawValues = []; // valores brutos para exibicao nos labels
+
+      // Limita a 8 construtos principais para legibilidade
+      const mainClimates = EXT_CORR_INDICES.slice(0, 8);
+      mainClimates.forEach(ci => {
+        labels.push(ci.short);
+        climateData.push(pData.climateMeans[ci.id] !== undefined ? pData.climateMeans[ci.id] : null);
+        extDataNorm.push(null); // sem dado externo nesta posicao
+        extRawValues.push(null);
+      });
+      EXT_INDICATORS.forEach(ind => {
+        labels.push(ind.short);
+        climateData.push(null); // sem dado de clima nesta posicao
+        const raw = pData.ext[ind.key];
+        extDataNorm.push(isNaN(raw) ? null : normalizeExt(ind.key, raw));
+        // Formata o valor bruto para o label
+        if (isNaN(raw)) {
+          extRawValues.push(null);
+        } else if (ind.unit === "%") {
+          extRawValues.push(raw.toFixed(1).replace('.', ',') + '%');
+        } else {
+          extRawValues.push(raw % 1 === 0 ? String(raw) : raw.toFixed(1).replace('.', ','));
+        }
+      });
+
+      // Plugin para desenhar labels de dados nas barras
+      const dataLabelPlugin = {
+        id: 'profileDataLabels',
+        afterDatasetsDraw(chart) {
+          const ctx = chart.ctx;
+          chart.data.datasets.forEach((ds, dsIdx) => {
+            const meta = chart.getDatasetMeta(dsIdx);
+            meta.data.forEach((bar, i) => {
+              const val = ds.data[i];
+              if (val === null || val === undefined) return;
+              let text;
+              if (dsIdx === 0) {
+                // Clima: mostra valor 0-100
+                text = val.toFixed(0);
+              } else {
+                // Externo: mostra valor bruto original
+                text = extRawValues[i];
+                if (!text) return;
+              }
+              ctx.save();
+              ctx.font = '600 9.5px sans-serif';
+              ctx.fillStyle = dsIdx === 0 ? '#1a7a5a' : '#1a3fcc';
+              ctx.textAlign = 'center';
+              // Posiciona acima da barra se valor > 5, senao acima da base
+              const yPos = val > 5 ? bar.y - 5 : bar.y + 12;
+              ctx.fillText(text, bar.x, yPos);
+              ctx.restore();
+            });
+          });
+        }
+      };
+
+      makeChart("chExtSchoolProfile", {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            { label: "Clima Escolar (0–100)", data: climateData, backgroundColor: "rgba(26,160,109,.7)", borderRadius: 4 },
+            { label: "Indicadores Externos (normalizado 0–100)", data: extDataNorm, backgroundColor: "rgba(36,84,255,.6)", borderRadius: 4 }
+          ]
+        },
+        options: {
+          ...CHART_DEFAULTS,
+          plugins: { legend: { position: "bottom" } },
+          scales: {
+            y: { min: 0, max: 100, title: { display: true, text: "Escore (0–100)" } },
+            x: { ticks: { font: { size: 9.5 }, maxRotation: 55, minRotation: 40 } }
+          },
+          layout: { padding: { top: 14 } }
+        },
+        plugins: [dataLabelPlugin]
+      });
+    }
+    $("#extSchoolSelect").addEventListener("change", drawSchoolProfile);
+    drawSchoolProfile();
+
+    // --- RANKING POR INDICADOR EXTERNO COM SOBREPOSICAO DE CLIMA ---
+    function drawRanking() {
+      const extKey = $("#extRankInd").value;
+      const climateId = $("#extRankClimate").value;
+      const extInd = EXT_INDICATORS.find(i => i.key === extKey);
+      const climateDef = EXT_CORR_INDICES.find(c => c.id === climateId);
+
+      // Filtra escolas com dado externo valido
+      const valid = paired.filter(p => !isNaN(p.ext[extKey]));
+      // Ordena: para positive, maior primeiro; para risk, menor primeiro
+      valid.sort((a, b) => extInd.direction === "positive" ? b.ext[extKey] - a.ext[extKey] : a.ext[extKey] - b.ext[extKey]);
+
+      // Normaliza clima para cor
+      const climateVals = valid.map(p => p.climateMeans[climateId]).filter(v => v !== null && v !== undefined);
+      const cMin = climateVals.length ? Math.min(...climateVals) : 0;
+      const cMax = climateVals.length ? Math.max(...climateVals) : 100;
+
+      const html = valid.map(p => {
+        const extVal = p.ext[extKey];
+        const cVal = p.climateMeans[climateId];
+        const extDisplay = extInd.unit === "%" ? fmtPct(extVal) : fmt1(extVal);
+        const climatePct = cVal !== null && cVal !== undefined ? ((cVal - cMin) / (cMax - cMin || 1) * 100) : 50;
+        const climateColor = cVal !== null && cVal !== undefined ? colorForValue(cVal, "positive") : "#c9d2e0";
+        return `
+          <div style="display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px">
+            <div style="flex:0 0 200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(p.escola)}">${escapeHtml(p.escola)}</div>
+            <div style="flex:0 0 60px;text-align:right;font-weight:700">${extDisplay}</div>
+            <div style="flex:1;background:#eef1f6;border-radius:4px;height:16px;overflow:hidden;position:relative">
+              <div style="width:100%;height:100%;background:${climateColor};opacity:0.35;border-radius:4px"></div>
+            </div>
+            <div style="flex:0 0 42px;text-align:right;font-weight:600;color:var(--muted);font-size:11px">${cVal !== null && cVal !== undefined ? fmt1(cVal) : "—"}</div>
+          </div>`;
+      }).join("");
+
+      $("#extRankWrap").innerHTML = html + `
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:var(--muted)">
+          <div style="flex:0 0 200px"></div>
+          <div style="flex:0 0 60px;text-align:right;font-weight:700">${extInd.short}</div>
+          <div style="flex:1"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:rgba(26,160,109,.5);margin-right:4px;vertical-align:middle"></span>${climateDef.short} (0–100)</div>
+          <div style="flex:0 0 42px"></div>
+        </div>
+      `;
+    }
+    $("#extRankInd").addEventListener("change", drawRanking);
+    $("#extRankClimate").addEventListener("change", drawRanking);
+    drawRanking();
   }
 
   // expose for debugging
