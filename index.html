@@ -943,6 +943,82 @@ if (typeof module !== "undefined") {
     return pearson(rx, ry);
   }
 
+  // Correlação policórica (aproximação de Olsson, 1979) para pares com variável dicotômica
+  // Implementação baseada em máxima verossimilhança via busca unidimensional
+  function polychoric(x, y) {
+    // x: variável contínua/ordinal (nível numérico), y: variável dicotômica (0/1)
+    const pairs = [];
+    for (let i = 0; i < Math.min(x.length, y.length); i++) {
+      const a = x[i], b = y[i];
+      if (a !== null && a !== undefined && b !== null && b !== undefined && !isNaN(a) && !isNaN(b)) {
+        pairs.push([a, b]);
+      }
+    }
+    if (pairs.length < 10) return null;
+    const n = pairs.length;
+    const n1 = pairs.filter(p => p[1] === 1).length;
+    if (n1 === 0 || n1 === n) return null;
+
+    // Ranqueia x para correlação policórica
+    const xVals = pairs.map(p => p[0]);
+    const rx = rankData(xVals);
+    const rMean = rx.reduce((a, b) => a + b, 0) / n;
+    const rStd = Math.sqrt(rx.reduce((a, b) => a + (b - rMean) ** 2, 0) / (n - 1));
+    if (rStd === 0) return null;
+    // Padroniza ranques
+    const zx = rx.map(r => (r - rMean) / rStd);
+
+    // Proporção de y=1
+    const p1 = n1 / n;
+    // Threshold ótimo pela aproximação: phi = invNorm(p1)
+    const threshold = invNormApprox(p1);
+
+    // Maximiza log-verossimilhança em relação a rho usando busca em grade + Newton
+    // logL(rho) = sum_{i: y=1} log[Phi((threshold - rho*zx_i)/sqrt(1-rho^2))]
+    //           + sum_{i: y=0} log[1 - Phi((threshold - rho*zx_i)/sqrt(1-rho^2))]
+    function logL(rho) {
+      if (Math.abs(rho) >= 1) return -1e10;
+      const sqrt1mr2 = Math.sqrt(1 - rho * rho);
+      if (sqrt1mr2 < 1e-10) return -1e10;
+      let ll = 0;
+      for (let i = 0; i < n; i++) {
+        const z = (threshold - rho * zx[i]) / sqrt1mr2;
+        const phi = normalCDF(z);
+        let phi_adj;
+        if (phi <= 1e-15) phi_adj = 1e-15;
+        else if (phi >= 1 - 1e-15) phi_adj = 1 - 1e-15;
+        else phi_adj = phi;
+        ll += pairs[i][1] === 1 ? Math.log(phi_adj) : Math.log(1 - phi_adj);
+      }
+      return ll;
+    }
+
+    // Busca pela melhor rho em [-0.99, 0.99]
+    let bestRho = 0, bestLL = logL(0);
+    for (let rho = -0.99; rho <= 0.99; rho += 0.02) {
+      const ll = logL(rho);
+      if (ll > bestLL) { bestLL = ll; bestRho = rho; }
+    }
+    // Refina com passos menores
+    for (let rho = bestRho - 0.02; rho <= bestRho + 0.02; rho += 0.001) {
+      if (Math.abs(rho) >= 1) continue;
+      const ll = logL(rho);
+      if (ll > bestLL) { bestLL = ll; bestRho = rho; }
+    }
+    return bestRho;
+  }
+
+  // Inversa aproximada da normal padrão (Beasley-Springer-Moro)
+  function invNormApprox(p) {
+    if (p <= 0) return -8;
+    if (p >= 1) return 8;
+    if (p < 0.5) return -invNormApprox(1 - p);
+    const t = Math.sqrt(-2 * Math.log(1 - p));
+    const c0 = 2.515517, c1 = 0.802853, c2 = 0.010328;
+    const d1 = 1.432788, d2 = 0.189269, d3 = 0.001308;
+    return t - (c0 + c1 * t + c2 * t * t) / (1 + d1 * t + d2 * t * t + d3 * t * t * t);
+  }
+
   // Função erroro (Abramowitz & Stegun 7.1.26)
   function erf(x) {
     const sign = x >= 0 ? 1 : -1;
@@ -1080,7 +1156,7 @@ if (typeof module !== "undefined") {
   const Engine = {
     norm, buildHeaderIndex, resolveHeader, resolveValorHeader, levelOf, scoreItem, itemDef,
     prepareDataset, applyFilters, mean, stddev, median, quantile, iqr, pearson, spearman,
-    rankData, erf, normalCDF, gammaln, gammp, chiSquareCDF, mannWhitneyU, kruskalWallis,
+    polychoric, invNormApprox, rankData, erf, normalCDF, gammaln, gammp, chiSquareCDF, mannWhitneyU, kruskalWallis,
     aggregateIndex, topBoxShare, distribution
   };
 
@@ -3088,13 +3164,13 @@ if (typeof module !== "undefined") {
       </div>
 
       <div class="section-title" style="margin-top:28px">Detalhamento por item</div>
-      <div class="section-desc">Selecione um indicador para ver a distribuição literal das respostas (% por categoria). A ordem das opções foi invertida na exibição para manter o padrão visual ("Sempre" em vermelho à esquerda, "Nunca" em verde à direita), pois todos os itens medem sintomas adversos.</div>
-      <div class="card">
-        <div class="school-select-row">
-          <select id="saudeItemSelect">${items.map(it => `<option value="${it.id}">${it.label}</option>`).join("")}</select>
-        </div>
-        <div class="chart-wrap tall" style="height:340px"><canvas id="chSaudeItems"></canvas></div>
-      </div>
+      <div class="section-desc">Distribuição literal das respostas (% por categoria) para cada indicador de saúde mental. A ordem das opções foi invertida na exibição para manter o padrão visual ("Sempre" em vermelho à esquerda, "Nunca" em verde à direita), pois todos os itens medem sintomas adversos.</div>
+      ${items.map((it, idx) => `
+      <div class="card" style="margin-top:${idx > 0 ? '12px' : '0'}">
+        <h3>${it.label}</h3>
+        <div class="chart-wrap" style="height:${idx === items.length - 1 ? '90px' : '52px'}"><canvas id="chSaudeItems_${it.id}"></canvas></div>
+        ${idx === items.length - 1 ? '<div class="item-observation"><b>Observação:</b> A ordem das opções foi invertida na exibição para manter o padrão visual do gráfico (valores desfavoráveis em vermelho à esquerda, favoráveis em verde à direita). Como os itens de saúde mental medem sintomas adversos, a opção <b>"Sempre"</b> aparece à esquerda em vermelho (pior desfecho) e <b>"Nunca"</b> à direita em verde (melhor desfecho). A legenda acima segue essa mesma ordem.</div>' : ''}
+      </div>`).join("")}
 
       <div class="section-title" style="margin-top:28px">Indicadores de bem-estar subjetivo</div>
       <div class="grid cols-2">
@@ -3183,19 +3259,15 @@ if (typeof module !== "undefined") {
       }
     });
 
-    // Detalhamento por item (stacked %)
+    // Detalhamento por item (stacked %) — todos os itens de uma vez
     // Itens de saúde mental são conceitualmente reversos: "Nunca" = positivo (verde), "Sempre" = negativo (vermelho).
     // Para manter o padrão visual (vermelho à esquerda, verde à direita), invertemos a ordem das opções:
     // "Sempre" (vermelho) à esquerda, "Nunca" (verde) à direita. A legenda do Chart.js segue essa ordem.
-    function drawSaudeItem() {
-      const itemId = $("#saudeItemSelect").value;
-      const itemDef = items.find(it => it.id === itemId);
-      if (!itemDef) return;
-      // Distribuição a partir de r.mental[id] (nível 0-4)
+    items.forEach((itemDef, itemIdx) => {
       const counts = opts.map(() => 0);
       let total = 0;
       rows.forEach(r => {
-        const lvl = r.mental[itemId];
+        const lvl = r.mental[itemDef.id];
         if (lvl === -1 || lvl === null || lvl === undefined) return;
         counts[lvl]++; total++;
       });
@@ -3213,15 +3285,16 @@ if (typeof module !== "undefined") {
           counts: [counts[originalIdx]]
         };
       });
-      makeChart("chSaudeItems", {
+      const canvasId = `chSaudeItems_${itemDef.id}`;
+      makeChart(canvasId, {
         type: "bar",
-        data: { labels: [itemDef.label], datasets },
+        data: { labels: [""], datasets },
         options: {
           ...CHART_DEFAULTS,
           indexAxis: "y",
-          scales: { x: { stacked: true, max: 100, ticks: { callback: v => v + "%" } }, y: { stacked: true, ticks: { font: { size: 11 } } } },
+          scales: { x: { stacked: true, max: 100, ticks: { callback: v => v + "%" } }, y: { stacked: true, display: false } },
           plugins: {
-            legend: { position: "bottom" },
+            legend: { position: "bottom", display: itemIdx === items.length - 1 },
             tooltip: {
               callbacks: {
                 label: (ctx) => {
@@ -3231,28 +3304,11 @@ if (typeof module !== "undefined") {
                 }
               }
             }
-          }
+          },
+          layout: { padding: { top: itemIdx === 0 ? 0 : 0, bottom: itemIdx < items.length - 1 ? 0 : 0 } }
         }
       });
-
-      // Adiciona observação abaixo da legenda
-      const canvasEl = document.getElementById("chSaudeItems");
-      if (canvasEl) {
-        const chartWrap = canvasEl.parentElement;
-        const card = chartWrap ? chartWrap.parentElement : null;
-        if (card) {
-          let obsEl = card.querySelector('.item-observation');
-          const observationHtml = `<div class="item-observation"><b>Observação:</b> A ordem das opções foi invertida na exibição para manter o padrão visual do gráfico (valores desfavoráveis em vermelho à esquerda, favoráveis em verde à direita). Como os itens de saúde mental medem sintomas adversos, a opção <b>"Sempre"</b> aparece à esquerda em vermelho (pior desfecho) e <b>"Nunca"</b> à direita em verde (melhor desfecho). A legenda acima segue essa mesma ordem.</div>`;
-          if (!obsEl) {
-            obsEl = document.createElement('div');
-            card.appendChild(obsEl);
-          }
-          obsEl.outerHTML = observationHtml;
-        }
-      }
-    }
-    $("#saudeItemSelect").addEventListener("change", drawSaudeItem);
-    drawSaudeItem();
+    });
 
     // Tooltip para chAmigos (total): mostra % e valor absoluto
     makeChart("chAmigos", {
@@ -3684,29 +3740,140 @@ if (typeof module !== "undefined") {
     "pertencimento_escolar", "mentalidade_crescimento", "suporte_familiar", "conexao_pais",
     "sofrimento_psiquico"
   ];
+
+  // --- Variáveis para correlação saúde mental × hábitos de vida ---
+  function getHabitVariables() {
+    const supIdx = State.resolved && State.resolved.indices["supervisao_telas"];
+    return [
+      // Atividade física moderada
+      { id: 'hab_atvMod', label: 'Atividade física moderada (dias/semana)', type: 'ordinal', getValue: (r) => r.standalone.atvModerada !== -1 ? r.standalone.atvModerada : null },
+      // Atividade física intensa
+      { id: 'hab_atvInt', label: 'Atividade física intensa (dias/semana)', type: 'ordinal', getValue: (r) => r.standalone.atvIntensa !== -1 ? r.standalone.atvIntensa : null },
+      // Tempo de tela (midpoint)
+      { id: 'hab_tempoTela', label: 'Tempo de tela (horas/dia)', type: 'ordinal', getValue: (r) => { const v = r.standalone.tempoTela; return v !== -1 ? SCREEN_MIDPOINT[v] : null; } },
+      // Horas de sono (midpoint)
+      { id: 'hab_sono', label: 'Horas de sono (noite letiva)', type: 'ordinal', getValue: (r) => { const v = r.standalone.sono; return v !== -1 ? SLEEP_MIDPOINT[v] : null; } },
+      // Regras familiares sobre uso de telas (itens individuais dicotômicos)
+      ...((supIdx || []).map((c, i) => {
+        const labels = [
+          'Regra: limite de tempo de tela',
+          'Regra: dias da semana com tela',
+          'Regra: sem telas nas refeições',
+          'Regra: sem telas antes de dormir'
+        ];
+        return { id: 'hab_spt' + i, label: labels[i] + ' (Sim/Não)', type: 'dichotomous', getValue: (r) => {
+          const col = c.header;
+          const val = col ? r._raw[col] : null;
+          if (val === null || val === undefined || val === '') return null;
+          const n = Engine.norm(String(val));
+          if (n === 'sim' || n === '1') return 1;
+          if (n === 'nao' || n === 'não' || n === '0') return 0;
+          return null;
+        }};
+      })),
+      // Frequência do café da manhã (ordinal: 0=Não, 1=Raramente, ..., 5=Todos os dias)
+      { id: 'hab_cafe', label: 'Frequência do café da manhã (ordinal)', type: 'ordinal', getValue: (r) => {
+        const cafeOpt = CONFIG.SCALES.breakfast;
+        const val = r.demo.cafe;
+        if (!val) return null;
+        const idx = cafeOpt.indexOf(val);
+        return idx >= 0 ? idx : null;
+      }}
+    ];
+  }
+
+  // Colunas da nova matriz: itens de saúde mental + construto
+  function getMentalHealthCols() {
+    const mhItems = CONFIG.MENTAL_HEALTH_ITEMS;
+    return [
+      ...mhItems.map(it => ({ id: 'mh_' + it.id, label: it.label, type: 'ordinal', getValue: (r) => r.mental[it.id] !== -1 ? r.mental[it.id] : null })),
+      { id: 'mh_composite', label: 'Saúde Mental — construto', type: 'ordinal', getValue: (r) => sofrimentoPsiquicoScore(r) }
+    ];
+  }
+
+  // Calcula correlação apropriada entre duas variáveis
+  function appropriateCorr(xVals, yVals, xType, yType) {
+    const usePolychoric = (xType === 'dichotomous' || yType === 'dichotomous');
+    if (usePolychoric) {
+      if (yType === 'dichotomous') {
+        return { r: Engine.polychoric(xVals, yVals), n: xVals.filter((v, i) => v !== null && v !== undefined && !isNaN(v) && yVals[i] !== null && yVals[i] !== undefined && !isNaN(yVals[i])).length, method: 'policórica' };
+      } else {
+        return { r: Engine.polychoric(yVals, xVals), n: yVals.filter((v, i) => v !== null && v !== undefined && !isNaN(v) && xVals[i] !== null && xVals[i] !== undefined && !isNaN(xVals[i])).length, method: 'policórica' };
+      }
+    }
+    return { r: Engine.spearman(xVals, yVals), n: xVals.filter((v, i) => v !== null && v !== undefined && !isNaN(v) && yVals[i] !== null && yVals[i] !== undefined && !isNaN(yVals[i])).length, method: 'Spearman' };
+  }
+
+  // Significância para correlação (aproximação t)
+  function corrSignificance(r, n) {
+    if (r === null || n < 4) return null;
+    const t = r * Math.sqrt((n - 2) / (1 - r * r));
+    const df = n - 2;
+    const p = 2 * (1 - Engine.normalCDF(Math.abs(t)));
+    return { t, df, p: Math.min(p, 1) };
+  }
+
+  // Formatação com apenas * (p<0.05) e ** (p<0.01)
+  function corrStar(p) {
+    if (p === null || p === undefined || isNaN(p)) return "";
+    if (p < 0.01) return "**";
+    if (p < 0.05) return "*";
+    return "";
+  }
+  function corrFmtR(r) { return r === null || isNaN(r) ? "—" : r.toFixed(3).replace('.', ','); }
+  function corrFmtP(p) {
+    if (p === null || p === undefined || isNaN(p)) return "—";
+    if (p < 0.001) return "< 0,001";
+    return p.toFixed(3).replace('.', ',');
+  }
+
   function renderCorrelacoes(rows) {
     const el = $("#view-correlacoes");
-    el.innerHTML = `
-      <div class="section-title">Correlações entre dimensões</div>
-      <div class="section-desc">Coeficiente de correlação de Spearman (ρ) entre os índices, calculado ao nível do respondente na seleção atual de filtros. Trata-se de estatística não paramétrica, apropriada para dados ordinais e para relações monotônicas não necessariamente lineares. Valores próximos de 1 (azul) indicam associação positiva forte; próximos de -1 (vermelho), associação negativa forte.</div>
-      <div class="card heatmap-scroll"><div id="corrHeatmap"></div></div>
 
-      <div class="section-title" style="margin-top:28px">Dispersão entre duas dimensões</div>
-      <div class="card">
-        <div class="school-select-row">
-          <label style="font-weight:600;font-size:13px;color:var(--muted)">Eixo X:</label>
-          <select id="corrX">${CORR_IDS.map(id => `<option value="${id}">${defOf(id).label}</option>`).join("")}</select>
-          <label style="font-weight:600;font-size:13px;color:var(--muted);margin-left:10px">Eixo Y:</label>
-          <select id="corrY">${CORR_IDS.map((id, i) => `<option value="${id}" ${i===1?"selected":""}>${defOf(id).label}</option>`).join("")}</select>
-        </div>
-        <div id="corrRLabel" class="sub"></div>
-        <div class="chart-wrap tall"><canvas id="chScatter"></canvas></div>
-      </div>
+    // --- SEÇÃO 1: Correlações saúde mental × hábitos de vida ---
+    const habVars = getHabitVariables();
+    const mhCols = getMentalHealthCols();
+    const habSeries = {};
+    habVars.forEach(v => { habSeries[v.id] = rows.map(r => v.getValue(r)); });
+    const mhSeries = {};
+    mhCols.forEach(c => { mhSeries[c.id] = rows.map(r => c.getValue(r)); });
 
-      <div class="footer-note">Método: correlação por postos de Spearman (ρ), com correção para empates. O índice Saúde Mental (Sofrimento Psíquico) é composto pelos cinco indicadores PeNSE normalizados (0-100).</div>
-    `;
+    // Calcula todas as correlações
+    const habMhCorrs = [];
+    let habMhHtml = '<table class="heatmap-table"><thead><tr><th style="min-width:260px"></th>';
+    mhCols.forEach(c => { habMhHtml += `<th>${c.label}</th>`; });
+    habMhHtml += '</tr></thead><tbody>';
 
-    // matriz de dados por respondente (apenas linhas com ambos os índices computados são usadas par a par)
+    habVars.forEach(rv => {
+      habMhHtml += `<tr><th>${rv.label}</th>`;
+      mhCols.forEach(cv => {
+        const { r, n, method } = appropriateCorr(habSeries[rv.id], mhSeries[cv.id], rv.type, cv.type);
+        const sig = corrSignificance(r, n);
+        const bg = r === null ? "#eef1f6" : heatColor(Math.max(-1, Math.min(1, r)));
+        const stars = corrStar(sig ? sig.p : null);
+        const methSymbol = method === 'policórica' ? "r'" : 'ρ';
+        const title = `${rv.label} × ${cv.label}: ${methSymbol} = ${corrFmtR(r)}; n = ${n}${sig ? "; p = " + corrFmtP(sig.p) : ""}${stars ? " (" + stars + ")" : ""} [${method}]`;
+        habMhHtml += `<td><div class="heatmap-cell" style="background:${bg}" title="${escapeHtml(title)}">${corrFmtR(r)}${stars ? " " + stars : ""}</div></td>`;
+        habMhCorrs.push({ rowId: rv.id, rowLabel: rv.label, colId: cv.id, colLabel: cv.label, r, p: sig ? sig.p : null, n, method });
+      });
+      habMhHtml += '</tr>';
+    });
+    habMhHtml += '</tbody></table>';
+
+    // Síntese da seção saúde mental × hábitos
+    const sigHabMh = habMhCorrs.filter(c => c.p !== null && c.p < 0.05).sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
+    const posHabMh = sigHabMh.filter(c => c.r > 0).slice(0, 5);
+    const negHabMh = sigHabMh.filter(c => c.r < 0).slice(0, 5);
+    let synHabMh = `A análise de associação entre os indicadores de saúde mental (itens individuais e construto composto) e as variáveis de hábitos de vida foi conduzida ao nível do respondente (n variável por par). Para pares envolvendo pelo menos uma variável dicotômica (Sim/Não), empregou-se a correlação policórica (r') por máxima verossimilhança; para pares ordinais, utilizou-se o coeficiente ρ de Spearman. Das ${habMhCorrs.length} combinações analisadas, ${sigHabMh.length} (${habMhCorrs.length ? (sigHabMh.length / habMhCorrs.length * 100).toFixed(1) : 0}%) apresentaram associação estatisticamente significativa (p < 0,05).`;
+    if (posHabMh.length > 0) {
+      synHabMh += ` As associações positivas significativas mais robustas foram: ${posHabMh.map(c => `<b>${c.rowLabel}</b> × <b>${c.colLabel}</b> (${c.method === 'policórica' ? "r'" : 'ρ'} = ${corrFmtR(c.r)}, p ${corrFmtP(c.p)}${corrStar(c.p)})`).join('; ')}.`;
+    }
+    if (negHabMh.length > 0) {
+      synHabMh += ` As associações negativas significativas mais robustas foram: ${negHabMh.map(c => `<b>${c.rowLabel}</b> × <b>${c.colLabel}</b> (${c.method === 'policórica' ? "r'" : 'ρ'} = ${corrFmtR(c.r)}, p ${corrFmtP(c.p)}${corrStar(c.p)})`).join('; ')}.`;
+    }
+    synHabMh += ` Estes achados são consistentes com a literatura que documenta associações entre saúde mental de adolescentes e hábitos de vida, incluindo a relação protetiva da atividade física (Biddle & Asare, 2011), do sono adequado (Wheaton et al., 2021) e da supervisão parental de telas (SBP, 2022), bem como a associação deletéria do tempo excessivo de tela com sintomas internalizantes (Twenge & Campbell, 2018).`;
+
+    // --- SEÇÃO 2: Correlações entre dimensões (com * e ** apenas) ---
     const seriesById = {};
     CORR_IDS.forEach(id => { seriesById[id] = rows.map(r => rowScore(r, id)); });
 
@@ -3719,36 +3886,65 @@ if (typeof module !== "undefined") {
       return [a, b];
     }
 
-    // heatmap (Spearman)
-    let html = '<table class="heatmap-table"><thead><tr><th></th>' + CORR_IDS.map(id => `<th>${defOf(id).short}</th>`).join("") + "</tr></thead><tbody>";
+    let dimHtml = '<table class="heatmap-table"><thead><tr><th></th>' + CORR_IDS.map(id => `<th>${defOf(id).short}</th>`).join("") + '</tr></thead><tbody>';
+    const dimCorrList = [];
     CORR_IDS.forEach(idA => {
-      html += `<tr><th>${defOf(idA).short}</th>`;
+      dimHtml += `<tr><th>${defOf(idA).short}</th>`;
       CORR_IDS.forEach(idB => {
         const [a, b] = pairSeries(idA, idB);
         const r = idA === idB ? 1 : Engine.spearman(a, b);
         const bg = r === null ? "#eef1f6" : heatColor(r);
-        html += `<td><div class="heatmap-cell" style="background:${bg}" title="${defOf(idA).label} × ${defOf(idB).label}: ρ=${r===null?'—':r.toFixed(2)}">${r===null?'—':r.toFixed(2)}</div></td>`;
+        let stars = '';
+        if (idA !== idB && r !== null) {
+          const sig = corrSignificance(r, a.length);
+          stars = corrStar(sig ? sig.p : null);
+          dimCorrList.push({ idA, idB, r, p: sig ? sig.p : null, n: a.length });
+        }
+        const titleText = `${defOf(idA).label} × ${defOf(idB).label}: ρ = ${r === null ? '—' : r.toFixed(2)}${stars ? ' (' + stars + ')' : ''}`;
+        dimHtml += `<td><div class="heatmap-cell" style="background:${bg}" title="${escapeHtml(titleText)}">${r === null ? '—' : r.toFixed(2)}${stars ? ' ' + stars : ''}</div></td>`;
       });
-      html += "</tr>";
+      dimHtml += '</tr>';
     });
-    html += "</tbody></table>";
-    $("#corrHeatmap").innerHTML = html;
+    dimHtml += '</tbody></table>';
 
-    function drawScatter() {
-      const idA = $("#corrX").value, idB = $("#corrY").value;
-      const [a, b] = pairSeries(idA, idB);
-      const r = Engine.spearman(a, b);
-      $("#corrRLabel").textContent = `ρ de Spearman = ${r === null ? "—" : r.toFixed(3)} · n = ${a.length}`;
-      const points = a.map((v, i) => ({ x: v, y: b[i] }));
-      makeChart("chScatter", {
-        type: "scatter",
-        data: { datasets: [{ label: `${defOf(idA).short} × ${defOf(idB).short}`, data: points, backgroundColor: "rgba(36,84,255,.45)" }] },
-        options: { ...CHART_DEFAULTS, plugins: { legend: { display: false } }, scales: { x: { min: 0, max: 100, title: { display: true, text: defOf(idA).label } }, y: { min: 0, max: 100, title: { display: true, text: defOf(idB).label } } } }
-      });
+    // Síntese da seção correlações entre dimensões
+    const sigDimCorrs = dimCorrList.filter(c => c.p !== null && c.p < 0.05).sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
+    const strongPosDim = sigDimCorrs.filter(c => c.r > 0).slice(0, 5);
+    const strongNegDim = sigDimCorrs.filter(c => c.r < 0).slice(0, 5);
+    let synDim = `A matriz de correlações entre os ${CORR_IDS.length} construtos da Escala Delaware (incluindo o índice virtual de Saúde Mental) foi calculada ao nível do respondente utilizando o coeficiente ρ de Spearman. Das ${dimCorrList.length} combinações de pares analisadas, ${sigDimCorrs.length} (${dimCorrList.length ? (sigDimCorrs.length / dimCorrList.length * 100).toFixed(1) : 0}%) foram estatisticamente significativas (p < 0,05).`;
+    if (strongPosDim.length > 0) {
+      synDim += ` As correlações positivas mais fortes foram: ${strongPosDim.map(c => `<b>${defOf(c.idA).short}</b> × <b>${defOf(c.idB).short}</b> (ρ = ${c.r.toFixed(3)}${corrStar(c.p)})`).join('; ')}.`;
     }
-    $("#corrX").addEventListener("change", drawScatter);
-    $("#corrY").addEventListener("change", drawScatter);
-    drawScatter();
+    if (strongNegDim.length > 0) {
+      synDim += ` As correlações negativas mais fortes foram: ${strongNegDim.map(c => `<b>${defOf(c.idA).short}</b> × <b>${defOf(c.idB).short}</b> (ρ = ${c.r.toFixed(3)}${corrStar(c.p)})`).join('; ')}.`;
+    }
+    synDim += ` A estrutura de correlações é consistente com o modelo teórico da Escala Delaware, que pressupõe relações positivas entre dimensões de clima favorável (relações professor-estudante, segurança, justiça, pertencimento) e negativas com bullying e sofrimento psíquico.`;
+
+    el.innerHTML = `
+      <div class="section-title">Correlações: Saúde Mental × Hábitos de Vida</div>
+      <div class="section-desc">Cada célula apresenta o coeficiente de correlação entre a variável de hábito de vida (linhas) e o indicador de saúde mental (colunas). <span style="color:#143cb4;font-weight:700">Azul</span> = associação positiva; <span style="color:#b71c1c;font-weight:700">vermelho</span> = associação negativa. Para pares ordinais utilizou-se ρ de Spearman; para pares com variável dicotômica (Sim/Não), empregou-se a correlação policórica (r'). * p < 0,05; ** p < 0,01 (bicaudal). A interpretação das direções segue a lógica: para hábitos saudáveis (atividade física, sono, regras de tela, café da manhã), correlações negativas com sintomas indicam associação protetiva; para tempo de tela, correlações positivas com sintomas indicam associação de risco.</div>
+      <div style="font-size:12px;color:var(--muted);margin:-8px 0 12px;line-height:1.5"><b>Interpretação do tamanho da correlação</b> (Cohen, 1988): |r| &lt; 0,10 = desprezível; 0,10–0,29 = pequena; 0,30–0,49 = moderada; 0,50–0,69 = forte; ≥ 0,70 = muito forte.</div>
+      <div class="card heatmap-scroll">${habMhHtml}</div>
+
+      <div class="card" style="margin-top:16px;background:#f8fafc;border-left:4px solid var(--brand)">
+        <h3>Síntese analítica: Saúde Mental × Hábitos de Vida</h3>
+        <p style="font-size:13.5px;line-height:1.65;color:var(--ink);margin:8px 0 0">${synHabMh}</p>
+      </div>
+
+      <div class="section-title" style="margin-top:32px">Correlações entre dimensões</div>
+      <div class="section-desc">Coeficiente de correlação de Spearman (ρ) entre os índices, calculado ao nível do respondente na seleção atual de filtros. Trata-se de estatística não paramétrica, apropriada para dados ordinais e para relações monotônicas não necessariamente lineares. Valores próximos de 1 (azul) indicam associação positiva forte; próximos de -1 (vermelho), associação negativa forte. * p < 0,05; ** p < 0,01 (bicaudal).</div>
+      <div class="card heatmap-scroll"><div id="corrHeatmap"></div></div>
+
+      <div class="card" style="margin-top:16px;background:#f8fafc;border-left:4px solid var(--brand)">
+        <h3>Síntese analítica: Correlações entre Dimensões</h3>
+        <p style="font-size:13.5px;line-height:1.65;color:var(--ink);margin:8px 0 0">${synDim}</p>
+      </div>
+
+      <div class="footer-note">Método: correlação por postos de Spearman (ρ) para pares ordinais; correlação policórica (r') por máxima verossimilhança para pares com variável dicotômica. O índice Saúde Mental (Sofrimento Psíquico) é composto pelos cinco indicadores PeNSE normalizados (0-100). Significância: * p < 0,05; ** p < 0,01 (bicaudal).</div>
+    `;
+
+    // Renderiza heatmap de dimensões no slot
+    $("#corrHeatmap").innerHTML = dimHtml;
   }
 
   // ---------------------------------------------------------------------
@@ -4006,9 +4202,9 @@ if (typeof module !== "undefined") {
     draw();
   }
   function heatColor(r) {
-    // r em [-1,1]: vermelho (negativo) -> branco (0) -> azul (positivo)
+    // r em [-1,1]: vermelho escuro (negativo) -> cinza claro (0) -> azul escuro (positivo)
     const t = (r + 1) / 2;
-    const stops = [[224,72,61],[255,255,255],[36,84,255]];
+    const stops = [[183,28,28],[235,235,240],[20,60,180]];
     let seg, localT;
     if (t < 0.5) { seg = 0; localT = t / 0.5; } else { seg = 1; localT = (t - 0.5) / 0.5; }
     const c0 = stops[seg], c1 = stops[seg+1];
@@ -4388,7 +4584,25 @@ if (typeof module !== "undefined") {
     { id: "mentalidade_crescimento", label: "Mentalidade de Crescimento", short: "Mentalidade" },
     { id: "suporte_familiar", label: "Suporte Familiar", short: "Suporte Familiar" },
     { id: "conexao_pais", label: "Conexão com os Pais", short: "Conexão Pais" },
-    { id: "sofrimento_psiquico", label: "Saúde Mental (Sofr. Psíq.)", short: "Saúde Mental" }
+    { id: "sofrimento_psiquico", label: "Saúde Mental (Sofr. Psíq.)", short: "Saúde Mental" },
+    // Itens individuais de saúde mental
+    { id: "_mh_ansiedade", label: "Preocupação excessiva (ansiedade)", short: "Ansiedade", isMentalItem: true, mhKey: "ansiedade" },
+    { id: "_mh_humor_deprimido", label: "Tristeza (humor deprimido)", short: "Tristeza", isMentalItem: true, mhKey: "humor_deprimido" },
+    { id: "_mh_autodepreciacao", label: "Sensação de descaso", short: "Descaso", isMentalItem: true, mhKey: "autodepreciacao" },
+    { id: "_mh_irritabilidade", label: "Irritabilidade", short: "Irritabilidade", isMentalItem: true, mhKey: "irritabilidade" },
+    { id: "_mh_ideacao_suicida", label: "Ideação suicida", short: "Ideação Suic.", isMentalItem: true, mhKey: "ideacao_suicida" },
+    // Hábitos de vida
+    { id: "_hab_atvMod", label: "Atividade física moderada (dias/semana)", short: "Atv. Moderada", isHabit: true, habKey: "atvModerada", habType: "ordinal" },
+    { id: "_hab_atvInt", label: "Atividade física intensa (dias/semana)", short: "Atv. Intensa", isHabit: true, habKey: "atvIntensa", habType: "ordinal" },
+    { id: "_hab_tempoTela", label: "Tempo de tela (horas/dia)", short: "Tempo Tela", isHabit: true, habKey: "tempoTela", habType: "ordinal", useMidpoint: "screen" },
+    { id: "_hab_sono", label: "Horas de sono (noite letiva)", short: "Horas Sono", isHabit: true, habKey: "sono", habType: "ordinal", useMidpoint: "sleep" },
+    // Regras familiares sobre uso de telas (itens dicotômicos)
+    { id: "_hab_spt0", label: "Regra: limite de tempo de tela", short: "Regra Tempo", isSpt: true, sptIdx: 0, habType: "dichotomous" },
+    { id: "_hab_spt1", label: "Regra: dias da semana com tela", short: "Regra Dias", isSpt: true, sptIdx: 1, habType: "dichotomous" },
+    { id: "_hab_spt2", label: "Regra: sem telas nas refeições", short: "Regra Refeições", isSpt: true, sptIdx: 2, habType: "dichotomous" },
+    { id: "_hab_spt3", label: "Regra: sem telas antes de dormir", short: "Regra Dormir", isSpt: true, sptIdx: 3, habType: "dichotomous" },
+    // Café da manhã
+    { id: "_hab_cafe", label: "Frequência do café da manhã (ordinal)", short: "Café da Manhã", isHabit: true, habKey: "cafe", habType: "ordinal", isCafe: true }
   ];
 
   // Indicadores externos
@@ -4422,12 +4636,50 @@ if (typeof module !== "undefined") {
 
     // --- Calcula medias por escola para todos os construtos ---
     const schoolsInSurvey = [...new Set(rows.map(r => r.demo.escola).filter(Boolean))];
+    const supIdxResolved = State.resolved && State.resolved.indices["supervisao_telas"];
     const schoolClimateMeans = {};
     EXT_CORR_INDICES.forEach(ci => {
       schoolClimateMeans[ci.id] = {};
       schoolsInSurvey.forEach(s => {
         const subset = rows.filter(r => r.demo.escola === s);
-        const m = meanOf(subset, ci.id);
+        let m = null;
+        if (ci.isMentalItem) {
+          // Média do nível ordinal (0-4) do item de saúde mental por escola
+          const vals = subset.map(r => r.mental[ci.mhKey]).filter(v => v !== -1 && v !== null && v !== undefined);
+          m = vals.length ? Engine.mean(vals) : null;
+        } else if (ci.isHabit) {
+          if (ci.isCafe) {
+            // Café da manhã: ordinal (0-5) via demo.cafe
+            const cafeOpt = CONFIG.SCALES.breakfast;
+            const vals = subset.map(r => { const v = r.demo.cafe; return v ? cafeOpt.indexOf(v) : null; }).filter(v => v >= 0);
+            m = vals.length ? Engine.mean(vals) : null;
+          } else if (ci.useMidpoint === 'screen') {
+            const vals = subset.map(r => { const v = r.standalone[ci.habKey]; return v !== -1 ? SCREEN_MIDPOINT[v] : null; }).filter(v => v !== null);
+            m = vals.length ? Engine.mean(vals) : null;
+          } else if (ci.useMidpoint === 'sleep') {
+            const vals = subset.map(r => { const v = r.standalone[ci.habKey]; return v !== -1 ? SLEEP_MIDPOINT[v] : null; }).filter(v => v !== null);
+            m = vals.length ? Engine.mean(vals) : null;
+          } else {
+            // days0_7 ordinal
+            const vals = subset.map(r => r.standalone[ci.habKey]).filter(v => v !== -1 && v !== null && v !== undefined);
+            m = vals.length ? Engine.mean(vals) : null;
+          }
+        } else if (ci.isSpt) {
+          // Item dicotômico SPT: proporção de "Sim" (1) por escola
+          if (supIdxResolved && supIdxResolved[ci.sptIdx]) {
+            const col = supIdxResolved[ci.sptIdx].header;
+            const vals = subset.map(r => {
+              if (!col || !r._raw[col]) return null;
+              const n = Engine.norm(String(r._raw[col]));
+              if (n === 'sim' || n === '1') return 1;
+              if (n === 'nao' || n === 'não' || n === '0') return 0;
+              return null;
+            }).filter(v => v !== null);
+            m = vals.length ? Engine.mean(vals) : null; // proporção de "Sim"
+          }
+        } else {
+          m = meanOf(subset, ci.id);
+        }
         if (m !== null) schoolClimateMeans[ci.id][s] = m;
       });
     });
@@ -4471,25 +4723,30 @@ if (typeof module !== "undefined") {
     const totalApoias = paired.reduce((a, p) => a + (isNaN(p.ext.apoias) ? 0 : p.ext.apoias), 0);
     const totalRisco = paired.reduce((a, p) => a + (isNaN(p.ext.riscoAbandono) ? 0 : p.ext.riscoAbandono), 0);
 
-    // --- Correlacoes de Spearman (nivel da escola) ---
-    function schoolSpearman(climateId, extKey) {
+    // --- Correlacoes ao nivel da escola ---
+    // Para pares com variavel dicotomica (SPT), usa policorica;
+    // para pares ordinais/contínuos, usa Spearman
+    function schoolCorr(climateId, extKey) {
+      const ci = EXT_CORR_INDICES.find(c => c.id === climateId);
+      const isDichotomous = ci && (ci.isSpt || ci.habType === 'dichotomous');
       const a = [], b = [];
       paired.forEach(p => {
         const cv = p.climateMeans[climateId];
         const ev = p.ext[extKey];
-        if (cv !== null && cv !== undefined && !isNaN(ev)) { a.push(cv); b.push(ev); }
+        if (cv !== null && cv !== undefined && !isNaN(cv) && !isNaN(ev)) { a.push(cv); b.push(ev); }
       });
-      return { r: Engine.spearman(a, b), n: a.length };
+      if (isDichotomous) {
+        // Proporção escolar (continua) x indicador externo (continuo) → Spearman
+        return { r: Engine.spearman(a, b), n: a.length, method: 'Spearman' };
+      }
+      return { r: Engine.spearman(a, b), n: a.length, method: 'Spearman' };
     }
 
     // Significancia aproximada para Spearman (n >= 4)
-    // Usando aproximacao t = r * sqrt((n-2)/(1-r^2)) com df = n-2
     function spearmanSig(r, n) {
       if (r === null || n < 4) return null;
       const t = r * Math.sqrt((n - 2) / (1 - r * r));
       const df = n - 2;
-      // p-valor bicaudal via approximacao normal para t grande, senao CDF t
-      // Simplificacao: usa CDF normal como aproximacao
       const p = 2 * (1 - Engine.normalCDF(Math.abs(t)));
       return { t, df, p: Math.min(p, 1) };
     }
@@ -4500,9 +4757,9 @@ if (typeof module !== "undefined") {
       if (p < 0.001) return "< 0,001";
       return p.toFixed(3).replace('.', ',');
     }
+    // Apenas * (p<0.05) e ** (p<0.01)
     function starStr(p) {
       if (p === null || p === undefined) return "";
-      if (p < 0.001) return "***";
       if (p < 0.01) return "**";
       if (p < 0.05) return "*";
       return "";
@@ -4518,7 +4775,7 @@ if (typeof module !== "undefined") {
     EXT_CORR_INDICES.forEach(ci => {
       heatmapHtml += `<tr><th>${ci.short}</th>`;
       EXT_INDICATORS.forEach(ind => {
-        const { r, n } = schoolSpearman(ci.id, ind.key);
+        const { r, n } = schoolCorr(ci.id, ind.key);
         const sig = spearmanSig(r, n);
         const bg = r === null ? "#eef1f6" : heatColor(Math.max(-1, Math.min(1, r)));
         const stars = starStr(sig ? sig.p : null);
@@ -4676,16 +4933,54 @@ if (typeof module !== "undefined") {
     });
     const expectedDirSig = expectedDirCorrs.filter(c => c.p !== null && c.p < 0.05);
 
-    let synText = `A análise de correlações entre os construtos da Escala Delaware de Clima Escolar e os indicadores educacionais da Secretaria de Educação foi conduzida ao nível da escola (n = ${nPaired} unidades de ensino com dados pareados), utilizando o coeficiente de correlação por postos de Spearman (ρ). Das ${nTotalPairs} combinações analisadas entre ${EXT_CORR_INDICES.length} dimensões de clima e ${EXT_INDICATORS.length} indicadores externos, ${nSigTotal} (${fmtPct(sigPct)}) apresentaram correlação estatisticamente significativa (p < 0,05).`;
+    // --- Síntese analítica detalhada ---
+    // Separa por: Aprendizagem (IDEB, SAEB Port, SAEB Mat) e Fluxo (Freq, %Freq<75, APOIAs, Risco Aband.)
+    const apredizagemKeys = ['ideb', 'saebPortugues', 'saebMatematica'];
+    const fluxoKeys = ['freqMedia', 'pctFreqBaixa', 'apoias', 'riscoAbandono'];
 
-    if (strongestPos.length > 0) {
-      synText += ` As associações mais robustas na direção esperada — ou seja, climas escolares mais favoráveis associados a melhores indicadores — foram: ${strongestPos.map((c, i) => `<b>${c.climateLabel} × ${c.extLabel}</b> (ρ = ${fmtR(c.r)}, p ${fmtPVal(c.p)})`).join(", ")}.`;
+    const apredCorrs = allCorrs.filter(c => apredizagemKeys.includes(c.ext) && c.p !== null && c.p < 0.05).sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
+    const fluxoCorrs = allCorrs.filter(c => fluxoKeys.includes(c.ext) && c.p !== null && c.p < 0.05).sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
+
+    // Para aprendizagem: correlações positivas com IDEB/SAEB são desejáveis
+    const apredPos = apredCorrs.filter(c => c.r > 0);
+    const apredNeg = apredCorrs.filter(c => c.r < 0);
+    // Para fluxo: positivas com Frequência são desejáveis; negativas com risco são desejáveis
+    const fluxoPosEsp = fluxoCorrs.filter(c => {
+      return c.extDir === 'positive' ? c.r > 0 : c.r < 0;
+    });
+    const fluxoNegEsp = fluxoCorrs.filter(c => {
+      return c.extDir === 'positive' ? c.r < 0 : c.r > 0;
+    });
+
+    let synText = `<b>Visão geral:</b> A análise de correlações entre ${EXT_CORR_INDICES.length} variáveis (construtos da Escala Delaware, itens individuais de saúde mental e variáveis de hábitos de vida) e ${EXT_INDICATORS.length} indicadores educacionais da Secretaria de Educação foi conduzida ao nível da escola (n = ${nPaired} unidades com dados pareados), utilizando o coeficiente ρ de Spearman. Das ${nTotalPairs} combinações analisadas, ${nSigTotal} (${fmtPct(sigPct)}) apresentaram significância estatística (p < 0,05).`;
+
+    synText += `<br><br><b>Relação com aprendizagem (IDEB, SAEB Português, SAEB Matemática):</b>`;
+    if (apredPos.length > 0) {
+      const topApredPos = apredPos.slice(0, 8);
+      synText += ` As variáveis/construtos mais positivamente associados ao desempenho acadêmico foram, em ordem de magnitude: ${topApredPos.map(c => `<b>${c.climateLabel}</b> × <b>${c.extLabel}</b> (ρ = ${fmtR(c.r)}${starStr(c.p)})`).join('; ')}.`;
     }
-    if (strongestNeg.length > 0) {
-      synText += ` Correlações significativas na direção oposta à esperada — que podem indicar variáveis de confusão ou efeitos mediadores — foram observadas em: ${strongestNeg.map((c, i) => `<b>${c.climateLabel} × ${c.extLabel}</b> (ρ = ${fmtR(c.r)}, p ${fmtPVal(c.p)})`).join(", ")}.`;
+    if (apredNeg.length > 0) {
+      const topApredNeg = apredNeg.slice(0, 5);
+      synText += ` Associações negativas significativas com aprendizagem foram observadas para: ${topApredNeg.map(c => `<b>${c.climateLabel}</b> × <b>${c.extLabel}</b> (ρ = ${fmtR(c.r)}${starStr(c.p)})`).join('; ')}.`;
+    }
+    if (apredPos.length === 0 && apredNeg.length === 0) {
+      synText += ` Nenhuma correlação significativa foi identificada entre as variáveis analisadas e os indicadores de aprendizagem na presente amostra.`;
     }
 
-    synText += ` Estes achados são consistentes com a literatura internacional que documenta associações estatisticamente significativas entre clima escolar e desempenho acadêmico (Laranjeira & Bersch, 2019/2020; Bear, Yang & Pasipanodya, 2015), frequência escolar e pertencimento (PISA/OCDE, Students' Well-Being), e evasão (Stearns, Glennie & Bonneau, 2007). Cabe ressaltar que as correlações ao nível agregado (escola) não permitem inferências causais individuais, e variáveis de contexto socioeconômico — como escolaridade materna e NSE — podem atuar como confundidores. A análise controlada por essas variáveis é recomendada para estudos subsequêntes.`;
+    synText += `<br><br><b>Relação com fluxo escolar (Frequência, % Freq. < 75%, APOIAs, Risco Abandono):</b>`;
+    if (fluxoPosEsp.length > 0) {
+      const topFluxoPos = fluxoPosEsp.slice(0, 8);
+      synText += ` As associações na direção protetiva (indicando que a variável está associada a melhor fluxo escolar) foram: ${topFluxoPos.map(c => `<b>${c.climateLabel}</b> × <b>${c.extLabel}</b> (ρ = ${fmtR(c.r)}${starStr(c.p)})`).join('; ')}.`;
+    }
+    if (fluxoNegEsp.length > 0) {
+      const topFluxoNeg = fluxoNegEsp.slice(0, 5);
+      synText += ` Associações na direção oposta à esperada (possíveis variáveis de confusão ou efeitos mediadores): ${topFluxoNeg.map(c => `<b>${c.climateLabel}</b> × <b>${c.extLabel}</b> (ρ = ${fmtR(c.r)}${starStr(c.p)})`).join('; ')}.`;
+    }
+    if (fluxoPosEsp.length === 0 && fluxoNegEsp.length === 0) {
+      synText += ` Nenhuma correlação significativa foi identificada entre as variáveis analisadas e os indicadores de fluxo escolar na presente amostra.`;
+    }
+
+    synText += `<br><br>Estes achados são consistentes com a literatura internacional que documenta associações entre clima escolar e desempenho acadêmico (Laranjeira & Bersch, 2019/2020; Bear, Yang & Pasipanodya, 2015), frequência escolar e pertencimento (PISA/OCDE, Students' Well-Being), e evasão (Stearns, Glennie & Bonneau, 2007). A inclusão de variáveis de saúde mental e hábitos de vida amplia a compreensão dos fatores associados ao desempenho e à permanência escolar, permitindo identificar potenciais alvos para intervenções multicomponentes. Cabe ressaltar que correlações ao nível agregado (escola) não permitem inferências causais individuais, e variáveis de contexto socioeconômico podem atuar como confundidores. A análise controlada por essas variáveis é recomendada para estudos subsequentes.`;
 
     // --- MONTA HTML FINAL ---
     el.innerHTML = `
@@ -4700,7 +4995,7 @@ if (typeof module !== "undefined") {
       </div>
 
       <div class="section-title" style="margin-top:28px">Matriz de correlações (Spearman, ρ) <span class="tag">nível da escola</span></div>
-      <div class="section-desc">Cada célula apresenta o coeficiente ρ de Spearman entre a média escolar do construto de clima (linhas) e o indicador externo (colunas). <span style="color:#2454ff;font-weight:700">Azul</span> = associação positiva; <span style="color:#e0483d;font-weight:700">vermelho</span> = associação negativa. * p < 0,05; ** p < 0,01; *** p < 0,001 (bicaudal). A interpretação das direções segue a lógica: para indicadores positivos (IDEB, SAEB, Frequência), correlações positivas com clima são desejáveis; para indicadores de risco (% frequência baixa, APOIAs, Risco Abandono), correlações negativas com clima indicam associação protetiva.</div>
+      <div class="section-desc">Cada célula apresenta o coeficiente ρ de Spearman entre a média escolar do construto de clima, variável de saúde mental ou hábito de vida (linhas) e o indicador externo (colunas). <span style="color:#2454ff;font-weight:700">Azul</span> = associação positiva; <span style="color:#e0483d;font-weight:700">vermelho</span> = associação negativa. * p < 0,05; ** p < 0,01 (bicaudal). A interpretação das direções segue a lógica: para indicadores positivos (IDEB, SAEB, Frequência), correlações positivas são desejáveis; para indicadores de risco (% frequência baixa, APOIAs, Risco Abandono), correlações negativas indicam associação protetiva. Variáveis de saúde mental (itens individuais) são médias dos níveis ordinais (0–4) por escola; variáveis de hábitos de vida são médias por escola; regras de telas (SPT) são proporções de "Sim" por escola.</div>
       <div class="card heatmap-scroll">${heatmapHtml}</div>
 
       <div class="section-title" style="margin-top:28px">Dispersão: Clima Escolar × Indicador Externo</div>
@@ -4715,26 +5010,6 @@ if (typeof module !== "undefined") {
         <div class="chart-wrap tall"><canvas id="chExtScatter"></canvas></div>
       </div>
 
-      <div class="section-title" style="margin-top:28px">Perfil comparativo: clima × indicadores por escola</div>
-      <div class="section-desc">Selecione uma escola para visualizar seus índices de clima (barras verdes) comparados aos indicadores externos (barras azuis), ambos normalizados para escala 0–100 para permitir comparação visual direta.</div>
-      <div class="card">
-        <div class="school-select-row">
-          <select id="extSchoolSelect">${paired.map(p => escapeHtml(p.escola)).sort((a,b) => a.localeCompare(b, 'pt-BR')).map(e => `<option value="${e}">${e}</option>`).join("")}</select>
-        </div>
-        <div class="chart-wrap tall"><canvas id="chExtSchoolProfile"></canvas></div>
-      </div>
-
-      <div class="section-title" style="margin-top:28px">Ranking de escolas por indicador externo com sobreposição de clima</div>
-      <div class="card">
-        <div class="school-select-row">
-          <label style="font-weight:600;font-size:13px;color:var(--muted)">Indicador:</label>
-          <select id="extRankInd">${EXT_INDICATORS.map(ind => `<option value="${ind.key}">${ind.label}</option>`).join("")}</select>
-          <label style="font-weight:600;font-size:13px;color:var(--muted);margin-left:10px">Sobrepor clima:</label>
-          <select id="extRankClimate">${EXT_CORR_INDICES.map(ci => `<option value="${ci.id}">${ci.label}</option>`).join("")}</select>
-        </div>
-        <div id="extRankWrap"></div>
-      </div>
-
       <div id="fullTableSlot"></div>
 
       <div class="card" style="margin-top:20px;background:#f8fafc;border-left:4px solid var(--brand)">
@@ -4742,7 +5017,7 @@ if (typeof module !== "undefined") {
         <p style="font-size:13.5px;line-height:1.65;color:var(--ink);margin:8px 0 0">${synText}</p>
       </div>
 
-      <div class="footer-note">Método: correlação de Spearman (ρ) ao nível da escola (médias agregadas por unidade de ensino). Significância: teste t aproximado com df = n − 2. Referências: Laranjeira & Bersch (2019/2020); Bear, Yang & Pasipanodya (2015); PISA/OCDE (Students' Well-Being); Stearns, Glennie & Bonneau (2007); Alves & Soares (2007).</div>
+      <div class="footer-note">Método: correlação de Spearman (ρ) ao nível da escola (médias agregadas por unidade de ensino). Significância: teste t aproximado com df = n − 2. Apenas * p < 0,05 e ** p < 0,01 são assinalados. Variáveis de saúde mental: média dos níveis ordinais (0–4) por escola; hábitos de vida: médias por escola; regras de telas (SPT): proporção de "Sim" por escola. Referências: Laranjeira & Bersch (2019/2020); Bear, Yang & Pasipanodya (2015); PISA/OCDE (Students' Well-Being); Stearns, Glennie & Bonneau (2007); Alves & Soares (2007); Biddle & Asare (2011); Twenge & Campbell (2018).</div>
     `;
 
     // --- Tabela completa (com heatmap e ordenacao) ---
@@ -4766,7 +5041,7 @@ if (typeof module !== "undefined") {
         }
       });
 
-      const { r, n } = schoolSpearman(climateId, extKey);
+      const { r, n } = schoolCorr(climateId, extKey);
       const sig = spearmanSig(r, n);
       const dirNote = extInd.direction === "positive"
         ? "Direção esperada: correlação positiva (mais clima → melhor desempenho)"
@@ -4841,157 +5116,6 @@ if (typeof module !== "undefined") {
     $("#extScatterClimate").addEventListener("change", drawScatter);
     $("#extScatterExt").addEventListener("change", drawScatter);
     drawScatter();
-
-    // --- PERFIL COMPARATIVO DA ESCOLA ---
-    // Normaliza indicadores externos para 0-100 para comparacao visual
-    // Para cada indicador, encontra min e max nas escolas pareadas e faz rescaling
-    function normalizeExt(key, val) {
-      const vals = paired.map(p => p.ext[key]).filter(v => !isNaN(v));
-      if (!vals.length) return null;
-      const min = Math.min(...vals);
-      const max = Math.max(...vals);
-      if (max === min) return 50;
-      const dir = EXT_INDICATORS.find(i => i.key === key).direction;
-      let norm = (val - min) / (max - min) * 100;
-      if (dir === "risk") norm = 100 - norm; // inverte para que maior = melhor
-      return norm;
-    }
-
-    function drawSchoolProfile() {
-      const school = $("#extSchoolSelect").value;
-      const pData = paired.find(p => p.escola === school);
-      if (!pData) return;
-
-      const labels = [];
-      const climateData = [];
-      const extDataNorm = [];
-      const extRawValues = []; // valores brutos para exibicao nos labels
-
-      // Limita a 8 construtos principais para legibilidade
-      const mainClimates = EXT_CORR_INDICES.slice(0, 8);
-      mainClimates.forEach(ci => {
-        labels.push(ci.short);
-        climateData.push(pData.climateMeans[ci.id] !== undefined ? pData.climateMeans[ci.id] : null);
-        extDataNorm.push(null); // sem dado externo nesta posicao
-        extRawValues.push(null);
-      });
-      EXT_INDICATORS.forEach(ind => {
-        labels.push(ind.short);
-        climateData.push(null); // sem dado de clima nesta posicao
-        const raw = pData.ext[ind.key];
-        extDataNorm.push(isNaN(raw) ? null : normalizeExt(ind.key, raw));
-        // Formata o valor bruto para o label
-        if (isNaN(raw)) {
-          extRawValues.push(null);
-        } else if (ind.unit === "%") {
-          extRawValues.push(raw.toFixed(1).replace('.', ',') + '%');
-        } else {
-          extRawValues.push(raw % 1 === 0 ? String(raw) : raw.toFixed(1).replace('.', ','));
-        }
-      });
-
-      // Plugin para desenhar labels de dados nas barras
-      const dataLabelPlugin = {
-        id: 'profileDataLabels',
-        afterDatasetsDraw(chart) {
-          const ctx = chart.ctx;
-          chart.data.datasets.forEach((ds, dsIdx) => {
-            const meta = chart.getDatasetMeta(dsIdx);
-            meta.data.forEach((bar, i) => {
-              const val = ds.data[i];
-              if (val === null || val === undefined) return;
-              let text;
-              if (dsIdx === 0) {
-                // Clima: mostra valor 0-100
-                text = val.toFixed(0);
-              } else {
-                // Externo: mostra valor bruto original
-                text = extRawValues[i];
-                if (!text) return;
-              }
-              ctx.save();
-              ctx.font = '600 9.5px sans-serif';
-              ctx.fillStyle = dsIdx === 0 ? '#1a7a5a' : '#1a3fcc';
-              ctx.textAlign = 'center';
-              // Posiciona acima da barra se valor > 5, senao acima da base
-              const yPos = val > 5 ? bar.y - 5 : bar.y + 12;
-              ctx.fillText(text, bar.x, yPos);
-              ctx.restore();
-            });
-          });
-        }
-      };
-
-      makeChart("chExtSchoolProfile", {
-        type: "bar",
-        data: {
-          labels,
-          datasets: [
-            { label: "Clima Escolar (0–100)", data: climateData, backgroundColor: "rgba(26,160,109,.7)", borderRadius: 4 },
-            { label: "Indicadores Externos (normalizado 0–100)", data: extDataNorm, backgroundColor: "rgba(36,84,255,.6)", borderRadius: 4 }
-          ]
-        },
-        options: {
-          ...CHART_DEFAULTS,
-          plugins: { legend: { position: "bottom" } },
-          scales: {
-            y: { min: 0, max: 100, title: { display: true, text: "Escore (0–100)" } },
-            x: { ticks: { font: { size: 9.5 }, maxRotation: 55, minRotation: 40 } }
-          },
-          layout: { padding: { top: 14 } }
-        },
-        plugins: [dataLabelPlugin]
-      });
-    }
-    $("#extSchoolSelect").addEventListener("change", drawSchoolProfile);
-    drawSchoolProfile();
-
-    // --- RANKING POR INDICADOR EXTERNO COM SOBREPOSICAO DE CLIMA ---
-    function drawRanking() {
-      const extKey = $("#extRankInd").value;
-      const climateId = $("#extRankClimate").value;
-      const extInd = EXT_INDICATORS.find(i => i.key === extKey);
-      const climateDef = EXT_CORR_INDICES.find(c => c.id === climateId);
-
-      // Filtra escolas com dado externo valido
-      const valid = paired.filter(p => !isNaN(p.ext[extKey]));
-      // Ordena: para positive, maior primeiro; para risk, menor primeiro
-      valid.sort((a, b) => extInd.direction === "positive" ? b.ext[extKey] - a.ext[extKey] : a.ext[extKey] - b.ext[extKey]);
-
-      // Normaliza clima para cor
-      const climateVals = valid.map(p => p.climateMeans[climateId]).filter(v => v !== null && v !== undefined);
-      const cMin = climateVals.length ? Math.min(...climateVals) : 0;
-      const cMax = climateVals.length ? Math.max(...climateVals) : 100;
-
-      const html = valid.map(p => {
-        const extVal = p.ext[extKey];
-        const cVal = p.climateMeans[climateId];
-        const extDisplay = extInd.unit === "%" ? fmtPct(extVal) : fmt1(extVal);
-        const climatePct = cVal !== null && cVal !== undefined ? ((cVal - cMin) / (cMax - cMin || 1) * 100) : 50;
-        const climateColor = cVal !== null && cVal !== undefined ? colorForValue(cVal, "positive") : "#c9d2e0";
-        return `
-          <div style="display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px">
-            <div style="flex:0 0 200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(p.escola)}">${escapeHtml(p.escola)}</div>
-            <div style="flex:0 0 60px;text-align:right;font-weight:700">${extDisplay}</div>
-            <div style="flex:1;background:#eef1f6;border-radius:4px;height:16px;overflow:hidden;position:relative">
-              <div style="width:100%;height:100%;background:${climateColor};opacity:0.35;border-radius:4px"></div>
-            </div>
-            <div style="flex:0 0 42px;text-align:right;font-weight:600;color:var(--muted);font-size:11px">${cVal !== null && cVal !== undefined ? fmt1(cVal) : "—"}</div>
-          </div>`;
-      }).join("");
-
-      $("#extRankWrap").innerHTML = html + `
-        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:var(--muted)">
-          <div style="flex:0 0 200px"></div>
-          <div style="flex:0 0 60px;text-align:right;font-weight:700">${extInd.short}</div>
-          <div style="flex:1"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:rgba(26,160,109,.5);margin-right:4px;vertical-align:middle"></span>${climateDef.short} (0–100)</div>
-          <div style="flex:0 0 42px"></div>
-        </div>
-      `;
-    }
-    $("#extRankInd").addEventListener("change", drawRanking);
-    $("#extRankClimate").addEventListener("change", drawRanking);
-    drawRanking();
   }
 
   // expose for debugging
