@@ -123,7 +123,7 @@ main{padding:20px 22px 60px; max-width:1400px; margin:0 auto}
 .card .sub{color:var(--muted); font-size:12.5px; margin-bottom:10px}
 .section-title{margin:26px 0 12px; font-size:18px; display:flex; align-items:center; gap:10px}
 .section-title .tag{font-size:11px; background:var(--brand-soft); color:var(--brand-ink); padding:3px 9px; border-radius:999px; font-weight:700}
-.section-desc{color:var(--muted); font-size:13px; margin:-6px 0 16px; max-width:920px}
+.section-desc{color:var(--muted); font-size:13px; margin:-6px 0 16px; max-width:none}
 
 .kpi{display:flex; flex-direction:column; gap:4px}
 .kpi .value{font-size:26px; font-weight:800}
@@ -300,7 +300,7 @@ window.CONFIG = (function(){ /* ================================================
    Dashboard de Clima Escolar - Rede Municipal de Joinville
    Configuração de dados: colunas do formulário, escalas e índices/dimensões
    Baseado em: Delaware School Climate Survey-Student (Bear et al., 2015),
-   PeNSE (IBGE, 2022), PISA (OCDE, 2022), GSHS (WHO, 2025), Holst (2014).
+   PeNSE (IBGE, 2024), PISA (OCDE, 2022), GSHS (WHO, 2025), Holst (2014).
    ========================================================================== */
 
 // Escalas ordenadas (na ordem em que aparecem no formulário)
@@ -1064,6 +1064,48 @@ if (typeof module !== "undefined") {
   // CDF da qui-quadrado com k graus de liberdade
   function chiSquareCDF(x, k) { if (x <= 0) return 0; return gammp(k / 2, x / 2); }
 
+  // Fração continuada para a função beta incompleta (Numerical Recipes betacf)
+  function betaCF(a, b, x) {
+    const MAXIT = 200, EPS = 3e-12, FPMIN = 1e-30;
+    const qab = a + b, qap = a + 1, qam = a - 1;
+    let c = 1, d = 1 - qab * x / qap;
+    if (Math.abs(d) < FPMIN) d = FPMIN;
+    d = 1 / d;
+    let h = d;
+    for (let m = 1; m <= MAXIT; m++) {
+      const m2 = 2 * m;
+      let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+      c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+      d = 1 / d; h *= d * c;
+      aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+      c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+      d = 1 / d;
+      const del = d * c; h *= del;
+      if (Math.abs(del - 1) < EPS) break;
+    }
+    return h;
+  }
+
+  // Função beta incompleta regularizada I_x(a, b) (Numerical Recipes betai)
+  function betai(a, b, x) {
+    if (x < 0 || x > 1) return (x < 0) ? 0 : 1;
+    const bt = (x === 0 || x === 1) ? 0
+      : Math.exp(gammaln(a + b) - gammaln(a) - gammaln(b) + a * Math.log(x) + b * Math.log(1 - x));
+    if (x < (a + 1) / (a + b + 2)) return bt * betaCF(a, b, x) / a;
+    return 1 - bt * betaCF(b, a, 1 - x) / b;
+  }
+
+  // CDF da distribuicao t de Student (unicaudal, t >= 0)
+  // Relacao: P(T <= t) = 1 - 0.5 * I_x(df/2, 1/2), x = df/(df+t^2)
+  function tCDF(t, df) {
+    if (df <= 0) return 0;
+    const x = df / (df + t * t);
+    const ib = betai(df / 2, 0.5, x);
+    return t >= 0 ? 1 - 0.5 * ib : 0.5 * ib;
+  }
+
   // Teste U de Mann-Whitney (2 grupos independentes)
   // Retorna: U, z (com correção de continuidade), p (bicaudal), r = |z|/sqrt(N), n1, n2
   function mannWhitneyU(g1, g2) {
@@ -1156,7 +1198,7 @@ if (typeof module !== "undefined") {
   const Engine = {
     norm, buildHeaderIndex, resolveHeader, resolveValorHeader, levelOf, scoreItem, itemDef,
     prepareDataset, applyFilters, mean, stddev, median, quantile, iqr, pearson, spearman,
-    polychoric, invNormApprox, rankData, erf, normalCDF, gammaln, gammp, chiSquareCDF, mannWhitneyU, kruskalWallis,
+    invNormApprox, rankData, erf, normalCDF, gammaln, gammp, chiSquareCDF, betaCF, betai, tCDF, mannWhitneyU, kruskalWallis,
     aggregateIndex, topBoxShare, distribution
   };
 
@@ -1756,7 +1798,8 @@ if (typeof module !== "undefined") {
       freqMedia: "Frequencia Percentual Media dos Alunos (2026)",
       pctFreqBaixa: "Percentual de Alunos com Frequencia Menor que 75% (2026)",
       apoias: "APOIAs em Andamento (2026)",
-      riscoAbandono: "Alunos em Risco de Abandono (2026)"
+      riscoAbandono: "Alunos em Risco de Abandono (2026)",
+      // Nota: apos parseExternalRows, apoias e riscoAbandono sao convertidos para taxa por 100 alunos
     };
     // Cria mapa normalizado (sem diacriticos) para casar cabecalhos
     const hIdx = {};
@@ -1796,6 +1839,26 @@ if (typeof module !== "undefined") {
         }
       }
     });
+
+    // Colunas de contagem bruta (APOIAs, Risco de Abandono): converter para taxas por 100 alunos
+    // usando qtdAlunos como denominador, para remover o efeito do tamanho da escola.
+    var rateCols = ['apoias', 'riscoAbandono'];
+    var rateDen = 'qtdAlunos';
+    var hasDen = State.externalData.some(function(d) { return !isNaN(d[rateDen]) && d[rateDen] > 0; });
+    if (hasDen) {
+      rateCols.forEach(function(key) {
+        var converted = 0;
+        State.externalData.forEach(function(d) {
+          if (!isNaN(d[key]) && !isNaN(d[rateDen]) && d[rateDen] > 0) {
+            d[key] = (d[key] / d[rateDen]) * 100;
+            converted++;
+          } else if (!isNaN(d[key])) {
+            d[key] = NaN; // sem denominador valido → dado indisponivel
+          }
+        });
+        console.log('[Dashboard] Coluna externa ' + key + ' convertida de contagem bruta para taxa por 100 alunos (' + converted + ' escolas com denominador valido).');
+      });
+    }
   }
 
   // ---------------------------------------------------------------------
@@ -3177,7 +3240,7 @@ if (typeof module !== "undefined") {
         <div class="card"><h3>Quantidade de amigos(as) próximos(as) — total</h3><div class="chart-wrap"><canvas id="chAmigos"></canvas></div></div>
         <div class="card"><h3>Quantidade de amigos(as) próximos(as) — por sexo</h3><div class="chart-wrap"><canvas id="chAmigosSexo"></canvas></div></div>
         <div class="card"><h3>Satisfação geral com a vida (0-10) — distribuição</h3><div class="chart-wrap"><canvas id="chSatisf"></canvas></div></div>
-        <div class="card"><h3>Satisfação média com a vida (0-10) — por sexo</h3><div class="chart-wrap"><canvas id="chSatisfSexo"></canvas></div></div>
+        <div class="card"><h3>Distribuição da satisfação com a vida (0-10) — por sexo</h3><div class="chart-wrap"><canvas id="chSatisfSexo"></canvas></div></div>
       </div>
 
       ${synSaude}
@@ -3493,7 +3556,7 @@ if (typeof module !== "undefined") {
 
     el.innerHTML = `
       <div class="section-title">Atividade física, sono e tempo de tela</div>
-      <div class="section-desc">Baseado em itens do PISA (OCDE, 2022), PeNSE (IBGE, 2022) e GSHS/WHO (2025).</div>
+      <div class="section-desc">Baseado em itens do PISA (OCDE, 2022), PeNSE (IBGE, 2024) e GSHS/WHO (2025).</div>
       <div class="grid cols-4">
         ${kpiCard("Atividade física moderada (dias/semana)", fmt1(modMean), "recomendação: diariamente (7 dias)")}
         ${kpiCard("Atividade física intensa (dias/semana)", fmt1(intMean), "≥20 min contínuos")}
@@ -3524,7 +3587,7 @@ if (typeof module !== "undefined") {
 
       ${synHab}
 
-      <div class="footer-note">Fonte: PISA (OCDE, 2022), PeNSE (IBGE, 2022), GSHS (WHO, 2025) e SBP (2022).</div>
+      <div class="footer-note">Fonte: PISA (OCDE, 2022), PeNSE (IBGE, 2024), GSHS (WHO, 2025) e SBP (2022).</div>
     `;
 
     makeChart("chAtvMod", {
@@ -3659,7 +3722,7 @@ if (typeof module !== "undefined") {
           <label style="font-weight:600;font-size:13px;color:var(--muted)">Índice:</label>
           <select id="escolaIdxSelect">${ALL_COMPARABLE_INDICES.map(id => `<option value="${id}">${defOf(id).label}</option>`).join("")}</select>
           <label style="font-weight:600;font-size:13px;color:var(--muted);margin-left:10px;display:none">Mín. respondentes:</label>
-          <select id="escolaMinN" style="display:none"><option value="1">1</option><option value="5" selected>5</option><option value="10">10</option><option value="20">20</option></select>
+          <select id="escolaMinN" style="display:none"><option value="1" selected>1</option><option value="5">5</option><option value="10">10</option><option value="20">20</option></select>
         </div>
         <div id="escolaRankWrap"></div>
       </div>
@@ -3791,17 +3854,12 @@ if (typeof module !== "undefined") {
     ];
   }
 
-  // Calcula correlação apropriada entre duas variáveis
+  // Calcula correlação entre duas variáveis — sempre Spearman (não paramétrico)
+  // Variáveis dicotômicas são tratadas via ranqueamento com correção de empates
+  // (equivalente à correlação ponto-biserial sobre os ranks)
   function appropriateCorr(xVals, yVals, xType, yType) {
-    const usePolychoric = (xType === 'dichotomous' || yType === 'dichotomous');
-    if (usePolychoric) {
-      if (yType === 'dichotomous') {
-        return { r: Engine.polychoric(xVals, yVals), n: xVals.filter((v, i) => v !== null && v !== undefined && !isNaN(v) && yVals[i] !== null && yVals[i] !== undefined && !isNaN(yVals[i])).length, method: 'policórica' };
-      } else {
-        return { r: Engine.polychoric(yVals, xVals), n: yVals.filter((v, i) => v !== null && v !== undefined && !isNaN(v) && xVals[i] !== null && xVals[i] !== undefined && !isNaN(xVals[i])).length, method: 'policórica' };
-      }
-    }
-    return { r: Engine.spearman(xVals, yVals), n: xVals.filter((v, i) => v !== null && v !== undefined && !isNaN(v) && yVals[i] !== null && yVals[i] !== undefined && !isNaN(yVals[i])).length, method: 'Spearman' };
+    const validPairs = xVals.filter((v, i) => v !== null && v !== undefined && !isNaN(v) && yVals[i] !== null && yVals[i] !== undefined && !isNaN(yVals[i]));
+    return { r: Engine.spearman(xVals, yVals), n: validPairs.length, method: 'Spearman' };
   }
 
   // Significância para correlação (aproximação t)
@@ -3809,7 +3867,7 @@ if (typeof module !== "undefined") {
     if (r === null || n < 4) return null;
     const t = r * Math.sqrt((n - 2) / (1 - r * r));
     const df = n - 2;
-    const p = 2 * (1 - Engine.normalCDF(Math.abs(t)));
+    const p = Engine.betai(df / 2, 0.5, df / (df + t * t));
     return { t, df, p: Math.min(p, 1) };
   }
 
@@ -4612,8 +4670,8 @@ if (typeof module !== "undefined") {
     { key: "saebMatematica", label: "SAEB 9º Ano Matemática (2025)", short: "SAEB Mat.", direction: "positive", unit: "" },
     { key: "freqMedia", label: "Frequência Percentual Média (2026)", short: "Frequência", direction: "positive", unit: "%" },
     { key: "pctFreqBaixa", label: "% Alunos com Frequência < 75% (2026)", short: "% Freq. < 75%", direction: "risk", unit: "%" },
-    { key: "apoias", label: "APOIAs em Andamento (2026)", short: "APOIAs", direction: "risk", unit: "" },
-    { key: "riscoAbandono", label: "Alunos em Risco de Abandono (2026)", short: "Risco Aband.", direction: "risk", unit: "" }
+    { key: "apoias", label: "Taxa de APOIAs por 100 alunos (2026)", short: "APOIAs/100", direction: "risk", unit: "%" },
+    { key: "riscoAbandono", label: "Taxa de Risco de Abandono por 100 alunos (2026)", short: "Risco/100", direction: "risk", unit: "%" }
   ];
 
   function renderIndicesExternos(rows) {
@@ -4626,7 +4684,7 @@ if (typeof module !== "undefined") {
         <div class="card">
           <div class="empty-note">
             <p><b>Carregando dados externos...</b></p>
-            <p>A planilha de índices externos (IDEB, SAEB, frequência, APOIAs, risco de abandono) está sendo carregada automaticamente.</p>
+            <p>A planilha de índices externos (IDEB, SAEB, frequência, taxas de APOIAs e risco de abandono por 100 alunos) está sendo carregada automaticamente.</p>
             <p>Se os dados não aparecerem em alguns instantes, verifique sua conexão com a internet e recarregue a página.</p>
           </div>
         </div>
@@ -4720,25 +4778,20 @@ if (typeof module !== "undefined") {
     const extWithId = paired.filter(p => !isNaN(p.ext.ideb));
     const meanId = extWithId.length ? Math.floor((extWithId.reduce((a, p) => a + p.ext.ideb, 0) / extWithId.length) * 10) / 10 : null;
     const meanFreq = paired.length ? paired.reduce((a, p) => a + (isNaN(p.ext.freqMedia) ? 0 : p.ext.freqMedia), 0) / paired.filter(p => !isNaN(p.ext.freqMedia)).length : null;
-    const totalApoias = paired.reduce((a, p) => a + (isNaN(p.ext.apoias) ? 0 : p.ext.apoias), 0);
-    const totalRisco = paired.reduce((a, p) => a + (isNaN(p.ext.riscoAbandono) ? 0 : p.ext.riscoAbandono), 0);
+    // totalApoias/totalRisco removidos: eram contagens brutas não exibidas;
+    // apoias e riscoAbandono agora são taxas por 100 alunos (ver parseExternalRows).
 
     // --- Correlacoes ao nivel da escola ---
-    // Para pares com variavel dicotomica (SPT), usa policorica;
-    // para pares ordinais/contínuos, usa Spearman
+    // Todas as correlações usam Spearman (não paramétrico).
+    // Variáveis dicotômicas (SPT) chegam como proporção por escola (0-1),
+    // sendo tratadas pelo ranqueamento com correção de empates.
     function schoolCorr(climateId, extKey) {
-      const ci = EXT_CORR_INDICES.find(c => c.id === climateId);
-      const isDichotomous = ci && (ci.isSpt || ci.habType === 'dichotomous');
       const a = [], b = [];
       paired.forEach(p => {
         const cv = p.climateMeans[climateId];
         const ev = p.ext[extKey];
         if (cv !== null && cv !== undefined && !isNaN(cv) && !isNaN(ev)) { a.push(cv); b.push(ev); }
       });
-      if (isDichotomous) {
-        // Proporção escolar (continua) x indicador externo (continuo) → Spearman
-        return { r: Engine.spearman(a, b), n: a.length, method: 'Spearman' };
-      }
       return { r: Engine.spearman(a, b), n: a.length, method: 'Spearman' };
     }
 
@@ -4747,7 +4800,7 @@ if (typeof module !== "undefined") {
       if (r === null || n < 4) return null;
       const t = r * Math.sqrt((n - 2) / (1 - r * r));
       const df = n - 2;
-      const p = 2 * (1 - Engine.normalCDF(Math.abs(t)));
+      const p = Engine.betai(df / 2, 0.5, df / (df + t * t));
       return { t, df, p: Math.min(p, 1) };
     }
 
@@ -4934,9 +4987,9 @@ if (typeof module !== "undefined") {
     const expectedDirSig = expectedDirCorrs.filter(c => c.p !== null && c.p < 0.05);
 
     // --- Síntese analítica detalhada ---
-    // Separa por: Aprendizagem (IDEB, SAEB Port, SAEB Mat) e Fluxo (Freq, %Freq<75, APOIAs, Risco Aband.)
+    // Separa por: Aprendizagem (IDEB, SAEB Port, SAEB Mat) e Fluxo (Freq, %Freq<75, APOIAs/100, Risco Aband./100)
     const apredizagemKeys = ['ideb', 'saebPortugues', 'saebMatematica'];
-    const fluxoKeys = ['freqMedia', 'pctFreqBaixa', 'apoias', 'riscoAbandono'];
+    const fluxoKeys = ['freqMedia', 'pctFreqBaixa', 'apoias', 'riscoAbandono']; // apoias/riscoAbandono: taxa por 100 alunos
 
     const apredCorrs = allCorrs.filter(c => apredizagemKeys.includes(c.ext) && c.p !== null && c.p < 0.05).sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
     const fluxoCorrs = allCorrs.filter(c => fluxoKeys.includes(c.ext) && c.p !== null && c.p < 0.05).sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
@@ -4967,7 +5020,7 @@ if (typeof module !== "undefined") {
       synText += ` Nenhuma correlação significativa foi identificada entre as variáveis analisadas e os indicadores de aprendizagem na presente amostra.`;
     }
 
-    synText += `<br><br><b>Relação com fluxo escolar (Frequência, % Freq. < 75%, APOIAs, Risco Abandono):</b>`;
+    synText += `<br><br><b>Relação com fluxo escolar (Frequência, % Freq. < 75%, APOIAs/100 alunos, Risco Aband./100 alunos):</b>`;
     if (fluxoPosEsp.length > 0) {
       const topFluxoPos = fluxoPosEsp.slice(0, 8);
       synText += ` As associações na direção protetiva (indicando que a variável está associada a melhor fluxo escolar) foram: ${topFluxoPos.map(c => `<b>${c.climateLabel}</b> × <b>${c.extLabel}</b> (ρ = ${fmtR(c.r)}${starStr(c.p)})`).join('; ')}.`;
@@ -4985,7 +5038,7 @@ if (typeof module !== "undefined") {
     // --- MONTA HTML FINAL ---
     el.innerHTML = `
       <div class="section-title">Índices Externos <span class="tag">Cruzamento de dados</span></div>
-      <div class="section-desc">Correlações entre os índices de clima escolar (Escala Delaware, média por escola) e indicadores educacionais da Secretaria de Educação de Joinville: IDEB (2025), SAEB 9º Ano — Português e Matemática (2025), frequência escolar, APOIAs e risco de abandono (2026). Fonte dos indicadores externos: planilha da Secretaria de Educação.</div>
+      <div class="section-desc">Correlações entre os índices de clima escolar (Escala Delaware, média por escola) e indicadores educacionais da Secretaria de Educação de Joinville: IDEB (2025), SAEB 9º Ano — Português e Matemática (2025), frequência escolar, taxas de APOIAs e risco de abandono por 100 alunos (2026). Fonte dos indicadores externos: planilha da Secretaria de Educação.</div>
 
       <div class="grid cols-4">
         ${kpiCard("Escolas pareadas", nPaired + " de " + nSurveySchools, "com dados em ambas as fontes")}
@@ -4995,7 +5048,7 @@ if (typeof module !== "undefined") {
       </div>
 
       <div class="section-title" style="margin-top:28px">Matriz de correlações (Spearman, ρ) <span class="tag">nível da escola</span></div>
-      <div class="section-desc">Cada célula apresenta o coeficiente ρ de Spearman entre a média escolar do construto de clima, variável de saúde mental ou hábito de vida (linhas) e o indicador externo (colunas). <span style="color:#2454ff;font-weight:700">Azul</span> = associação positiva; <span style="color:#e0483d;font-weight:700">vermelho</span> = associação negativa. * p < 0,05; ** p < 0,01 (bicaudal). A interpretação das direções segue a lógica: para indicadores positivos (IDEB, SAEB, Frequência), correlações positivas são desejáveis; para indicadores de risco (% frequência baixa, APOIAs, Risco Abandono), correlações negativas indicam associação protetiva. Variáveis de saúde mental (itens individuais) são médias dos níveis ordinais (0–4) por escola; variáveis de hábitos de vida são médias por escola; regras de telas (SPT) são proporções de "Sim" por escola.</div>
+      <div class="section-desc">Cada célula apresenta o coeficiente ρ de Spearman entre a média escolar do construto de clima, variável de saúde mental ou hábito de vida (linhas) e o indicador externo (colunas). <span style="color:#2454ff;font-weight:700">Azul</span> = associação positiva; <span style="color:#e0483d;font-weight:700">vermelho</span> = associação negativa. * p < 0,05; ** p < 0,01 (bicaudal). A interpretação das direções segue a lógica: para indicadores positivos (IDEB, SAEB, Frequência), correlações positivas são desejáveis; para indicadores de risco (% frequência baixa, taxa de APOIAs/100 alunos, taxa de risco de abandono/100 alunos), correlações negativas indicam associação protetiva. Variáveis de saúde mental (itens individuais) são médias dos níveis ordinais (0–4) por escola; variáveis de hábitos de vida são médias por escola; regras de telas (SPT) são proporções de "Sim" por escola.</div>
       <div class="card heatmap-scroll">${heatmapHtml}</div>
 
       <div class="section-title" style="margin-top:28px">Dispersão: Clima Escolar × Indicador Externo</div>
