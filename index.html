@@ -1734,7 +1734,13 @@ if (typeof module !== "undefined") {
           loaded = true;
         }
       }
-      if (loaded) console.log("[Dashboard] Planilha de indices externos carregada:", State.externalData ? State.externalData.length : 0, "escolas.");
+      if (loaded) {
+        console.log("[Dashboard] Planilha de indices externos carregada:", State.externalData ? State.externalData.length : 0, "escolas.");
+        // Se a aba de Indices Externos estiver ativa, re-renderiza para exibir os dados
+        if (State.activeView === "indices_externos") {
+          renderActiveView();
+        }
+      }
     } catch (err) {
       console.warn("[Dashboard] Nao foi possivel carregar a planilha de indices externos:", err);
     }
@@ -3909,8 +3915,7 @@ if (typeof module !== "undefined") {
         const sig = corrSignificance(r, n);
         const bg = r === null ? "#eef1f6" : heatColor(Math.max(-1, Math.min(1, r)));
         const stars = corrStar(sig ? sig.p : null);
-        const methSymbol = method === 'policórica' ? "r'" : 'ρ';
-        const title = `${rv.label} × ${cv.label}: ${methSymbol} = ${corrFmtR(r)}; n = ${n}${sig ? "; p = " + corrFmtP(sig.p) : ""}${stars ? " (" + stars + ")" : ""} [${method}]`;
+        const title = `${rv.label} × ${cv.label}: ρ = ${corrFmtR(r)}; n = ${n}${sig ? "; p = " + corrFmtP(sig.p) : ""}${stars ? " (" + stars + ")" : ""} [${method}]`;
         habMhHtml += `<td><div class="heatmap-cell" style="background:${bg}" title="${escapeHtml(title)}">${corrFmtR(r)}${stars ? " " + stars : ""}</div></td>`;
         habMhCorrs.push({ rowId: rv.id, rowLabel: rv.label, colId: cv.id, colLabel: cv.label, r, p: sig ? sig.p : null, n, method });
       });
@@ -3922,12 +3927,12 @@ if (typeof module !== "undefined") {
     const sigHabMh = habMhCorrs.filter(c => c.p !== null && c.p < 0.05).sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
     const posHabMh = sigHabMh.filter(c => c.r > 0).slice(0, 5);
     const negHabMh = sigHabMh.filter(c => c.r < 0).slice(0, 5);
-    let synHabMh = `A análise de associação entre os indicadores de saúde mental (itens individuais e construto composto) e as variáveis de hábitos de vida foi conduzida ao nível do respondente (n variável por par). Para pares envolvendo pelo menos uma variável dicotômica (Sim/Não), empregou-se a correlação policórica (r') por máxima verossimilhança; para pares ordinais, utilizou-se o coeficiente ρ de Spearman. Das ${habMhCorrs.length} combinações analisadas, ${sigHabMh.length} (${habMhCorrs.length ? (sigHabMh.length / habMhCorrs.length * 100).toFixed(1) : 0}%) apresentaram associação estatisticamente significativa (p < 0,05).`;
+    let synHabMh = `A análise de associação entre os indicadores de saúde mental (itens individuais e construto composto) e as variáveis de hábitos de vida foi conduzida ao nível do respondente (n variável por par), utilizando-se o coeficiente ρ de Spearman para todos os pares (incluindo variáveis dicotômicas, tratadas via ranqueamento com correção de empates — equivalente à correlação ponto-biserial sobre os ranks). Das ${habMhCorrs.length} combinações analisadas, ${sigHabMh.length} (${habMhCorrs.length ? (sigHabMh.length / habMhCorrs.length * 100).toFixed(1) : 0}%) apresentaram associação estatisticamente significativa (p < 0,05).`;
     if (posHabMh.length > 0) {
-      synHabMh += ` As associações positivas significativas mais robustas foram: ${posHabMh.map(c => `<b>${c.rowLabel}</b> × <b>${c.colLabel}</b> (${c.method === 'policórica' ? "r'" : 'ρ'} = ${corrFmtR(c.r)}, p ${corrFmtP(c.p)}${corrStar(c.p)})`).join('; ')}.`;
+      synHabMh += ` As associações positivas significativas mais robustas foram: ${posHabMh.map(c => `<b>${c.rowLabel}</b> × <b>${c.colLabel}</b> (ρ = ${corrFmtR(c.r)}, p ${corrFmtP(c.p)}${corrStar(c.p)})`).join('; ')}.`;
     }
     if (negHabMh.length > 0) {
-      synHabMh += ` As associações negativas significativas mais robustas foram: ${negHabMh.map(c => `<b>${c.rowLabel}</b> × <b>${c.colLabel}</b> (${c.method === 'policórica' ? "r'" : 'ρ'} = ${corrFmtR(c.r)}, p ${corrFmtP(c.p)}${corrStar(c.p)})`).join('; ')}.`;
+      synHabMh += ` As associações negativas significativas mais robustas foram: ${negHabMh.map(c => `<b>${c.rowLabel}</b> × <b>${c.colLabel}</b> (ρ = ${corrFmtR(c.r)}, p ${corrFmtP(c.p)}${corrStar(c.p)})`).join('; ')}.`;
     }
     synHabMh += ` Estes achados são consistentes com a literatura que documenta associações entre saúde mental de adolescentes e hábitos de vida, incluindo a relação protetiva da atividade física (Biddle & Asare, 2011), do sono adequado (Wheaton et al., 2021) e da supervisão parental de telas (SBP, 2022), bem como a associação deletéria do tempo excessivo de tela com sintomas internalizantes (Twenge & Campbell, 2018).`;
 
@@ -3980,7 +3985,7 @@ if (typeof module !== "undefined") {
 
     el.innerHTML = `
       <div class="section-title">Correlações: Saúde Mental × Hábitos de Vida</div>
-      <div class="section-desc">Cada célula apresenta o coeficiente de correlação entre a variável de hábito de vida (linhas) e o indicador de saúde mental (colunas). <span style="color:#143cb4;font-weight:700">Azul</span> = associação positiva; <span style="color:#b71c1c;font-weight:700">vermelho</span> = associação negativa. Para pares ordinais utilizou-se ρ de Spearman; para pares com variável dicotômica (Sim/Não), empregou-se a correlação policórica (r'). * p < 0,05; ** p < 0,01 (bicaudal). A interpretação das direções segue a lógica: para hábitos saudáveis (atividade física, sono, regras de tela, café da manhã), correlações negativas com sintomas indicam associação protetiva; para tempo de tela, correlações positivas com sintomas indicam associação de risco.</div>
+      <div class="section-desc">Cada célula apresenta o coeficiente de correlação entre a variável de hábito de vida (linhas) e o indicador de saúde mental (colunas). <span style="color:#143cb4;font-weight:700">Azul</span> = associação positiva; <span style="color:#b71c1c;font-weight:700">vermelho</span> = associação negativa. Utilizou-se o coeficiente ρ de Spearman para todos os pares — variáveis dicotômicas (Sim/Não) são tratadas via ranqueamento com correção de empates (correlação ponto-biserial sobre os ranks). * p < 0,05; ** p < 0,01 (bicaudal). A interpretação das direções segue a lógica: para hábitos saudáveis (atividade física, sono, regras de tela, café da manhã), correlações negativas com sintomas indicam associação protetiva; para tempo de tela, correlações positivas com sintomas indicam associação de risco.</div>
       <div style="font-size:12px;color:var(--muted);margin:-8px 0 12px;line-height:1.5"><b>Interpretação do tamanho da correlação</b> (Cohen, 1988): |r| &lt; 0,10 = desprezível; 0,10–0,29 = pequena; 0,30–0,49 = moderada; 0,50–0,69 = forte; ≥ 0,70 = muito forte.</div>
       <div class="card heatmap-scroll">${habMhHtml}</div>
 
@@ -3998,7 +4003,7 @@ if (typeof module !== "undefined") {
         <p style="font-size:13.5px;line-height:1.65;color:var(--ink);margin:8px 0 0">${synDim}</p>
       </div>
 
-      <div class="footer-note">Método: correlação por postos de Spearman (ρ) para pares ordinais; correlação policórica (r') por máxima verossimilhança para pares com variável dicotômica. O índice Saúde Mental (Sofrimento Psíquico) é composto pelos cinco indicadores PeNSE normalizados (0-100). Significância: * p < 0,05; ** p < 0,01 (bicaudal).</div>
+      <div class="footer-note">Método: coeficiente ρ de Spearman para todos os pares. Variáveis dicotômicas (Sim/Não) tratadas via ranqueamento com correção de empates (equivalente à correlação ponto-biserial sobre os ranks). O índice Saúde Mental (Sofrimento Psíquico) é composto pelos cinco indicadores PeNSE normalizados (0-100). Significância: teste t com distribuição t de Student; * p < 0,05; ** p < 0,01 (bicaudal).</div>
     `;
 
     // Renderiza heatmap de dimensões no slot
