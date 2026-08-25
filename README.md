@@ -23,12 +23,9 @@ Os resultados subsidiam **tomadas de decisão baseadas em evidências** para pro
 
 ## 📊 Funcionalidades
 
-- ✅ **Carregamento de dados via Google Sheets** — Cole um link público de uma planilha Google para análise automática
-- ✅ **8 abas de análise** — Visão geral, clima escolar, engajamento, hábitos, bem-estar, família, comparativo por escola e correlações
 - ✅ **Filtros demográficos** — Escola, ano, turno e sexo
 - ✅ **Gráficos interativos** — Barras, pizza, scatter plots e matriz de correlação
 - ✅ **Cálculo automático de índices** — Scores padronizados para cada dimensão da pesquisa
-- ✅ **Funciona offline** — Sem necessidade de backend ou servidor; roda 100% no navegador
 
 ## 🛠️ Especificações Técnicas
 
@@ -47,13 +44,10 @@ O projeto baseia-se em:
 - **Programa Internacional para Avaliação de Alunos (PISA)** — OCDE
 - **Global School-based Student Health Survey (GSHS)** — OMS/CDC
 
-Para detalhes completos, consulte: *"Projeto de Pesquisa - Diagnóstico de Clima Escolar da Rede Municipal de Joinville"*
-
-
 ## 🔒 Privacidade e Segurança
 
 - Todos os dados são processados **localmente no navegador do usuário**
-- Nenhuma informação é enviada para servidores externos (exceto ao carregar via Google Sheets)
+- Nenhuma informação é enviada para servidores externos
 - O dashboard **não coleta, armazena ou rastreia dados pessoais**
 
 ## 🤝 Contribuindo
