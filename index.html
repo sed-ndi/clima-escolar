@@ -272,6 +272,7 @@ table.simple tr:hover td{background:#fafbfe}
     <button data-view="diferenca_medias">Diferença de Médias</button>
     <button data-view="matriz_riscos">Matriz de Riscos</button>
     <button data-view="indices_externos">Índices Externos</button>
+    <button data-view="hipoteses">Quadro de Hipóteses</button>
   </div>
 
   <div class="filters" id="filtersWrap"></div>
@@ -289,6 +290,7 @@ table.simple tr:hover td{background:#fafbfe}
     <div class="view" id="view-diferenca_medias"></div>
     <div class="view" id="view-matriz_riscos"></div>
     <div class="view" id="view-indices_externos"></div>
+    <div class="view" id="view-hipoteses"></div>
   </main>
 </div>
 
@@ -1667,6 +1669,10 @@ if (typeof module !== "undefined") {
 
   function applyFiltersAndRender() {
     State.filtered = Engine.applyFilters(State.processedRows, State.filters);
+    // Invalida caches de correlação ao alterar filtros
+    State.habMhCorrs = null;
+    State.dimCorrs = null;
+    State.extCorrs = null;
     $("#respCount").textContent = State.filtered.length.toLocaleString("pt-BR");
     renderActiveView();
   }
@@ -1699,6 +1705,7 @@ if (typeof module !== "undefined") {
       case "diferenca_medias": renderDiferencaMedias(rows); break;
       case "matriz_riscos": renderMatrizRiscos(rows); break;
       case "indices_externos": renderIndicesExternos(rows); break;
+      case "hipoteses": renderHipoteses(rows); break;
     }
   }
 
@@ -1736,8 +1743,8 @@ if (typeof module !== "undefined") {
       }
       if (loaded) {
         console.log("[Dashboard] Planilha de indices externos carregada:", State.externalData ? State.externalData.length : 0, "escolas.");
-        // Se a aba de Indices Externos estiver ativa, re-renderiza para exibir os dados
-        if (State.activeView === "indices_externos") {
+        // Se a aba de Índices Externos ou Hipóteses estiver ativa, re-renderiza
+        if (State.activeView === "indices_externos" || State.activeView === "hipoteses") {
           renderActiveView();
         }
       }
@@ -3891,7 +3898,7 @@ if (typeof module !== "undefined") {
     return p.toFixed(3).replace('.', ',');
   }
 
-  function renderCorrelacoes(rows) {
+  function renderCorrelacoes(rows, computeOnly) {
     const el = $("#view-correlacoes");
 
     // --- SEÇÃO 1: Correlações saúde mental × hábitos de vida ---
@@ -3924,6 +3931,8 @@ if (typeof module !== "undefined") {
     habMhHtml += '</tbody></table>';
 
     // Síntese da seção saúde mental × hábitos
+    // Salva no State para uso na aba de Hipóteses
+    State.habMhCorrs = habMhCorrs;
     const sigHabMh = habMhCorrs.filter(c => c.p !== null && c.p < 0.05).sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
     const posHabMh = sigHabMh.filter(c => c.r > 0).slice(0, 5);
     const negHabMh = sigHabMh.filter(c => c.r < 0).slice(0, 5);
@@ -3951,9 +3960,9 @@ if (typeof module !== "undefined") {
 
     let dimHtml = '<table class="heatmap-table"><thead><tr><th></th>' + CORR_IDS.map(id => `<th>${defOf(id).short}</th>`).join("") + '</tr></thead><tbody>';
     const dimCorrList = [];
-    CORR_IDS.forEach(idA => {
+    CORR_IDS.forEach((idA, iA) => {
       dimHtml += `<tr><th>${defOf(idA).short}</th>`;
-      CORR_IDS.forEach(idB => {
+      CORR_IDS.forEach((idB, iB) => {
         const [a, b] = pairSeries(idA, idB);
         const r = idA === idB ? 1 : Engine.spearman(a, b);
         const bg = r === null ? "#eef1f6" : heatColor(r);
@@ -3961,7 +3970,7 @@ if (typeof module !== "undefined") {
         if (idA !== idB && r !== null) {
           const sig = corrSignificance(r, a.length);
           stars = corrStar(sig ? sig.p : null);
-          dimCorrList.push({ idA, idB, r, p: sig ? sig.p : null, n: a.length });
+          if (iA < iB) dimCorrList.push({ idA, idB, r, p: sig ? sig.p : null, n: a.length });
         }
         const titleText = `${defOf(idA).label} × ${defOf(idB).label}: ρ = ${r === null ? '—' : r.toFixed(2)}${stars ? ' (' + stars + ')' : ''}`;
         dimHtml += `<td><div class="heatmap-cell" style="background:${bg}" title="${escapeHtml(titleText)}">${r === null ? '—' : r.toFixed(2)}${stars ? ' ' + stars : ''}</div></td>`;
@@ -3971,6 +3980,9 @@ if (typeof module !== "undefined") {
     dimHtml += '</tbody></table>';
 
     // Síntese da seção correlações entre dimensões
+    // Salva no State para uso na aba de Hipóteses
+    State.dimCorrs = dimCorrList;
+    if (computeOnly) return;
     const sigDimCorrs = dimCorrList.filter(c => c.p !== null && c.p < 0.05).sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
     const strongPosDim = sigDimCorrs.filter(c => c.r > 0).slice(0, 5);
     const strongNegDim = sigDimCorrs.filter(c => c.r < 0).slice(0, 5);
@@ -4679,12 +4691,13 @@ if (typeof module !== "undefined") {
     { key: "riscoAbandono", label: "Taxa de Risco de Abandono por 100 alunos (2026)", short: "Risco/100", direction: "risk", unit: "%" }
   ];
 
-  function renderIndicesExternos(rows) {
+  function renderIndicesExternos(rows, computeOnly) {
     const el = $("#view-indices_externos");
 
     // Verifica dados externos
     if (!State.externalData || !State.externalData.length) {
-      el.innerHTML = `
+      if (!computeOnly) {
+        el.innerHTML = `
         <div class="section-title">Índices Externos</div>
         <div class="card">
           <div class="empty-note">
@@ -4694,6 +4707,7 @@ if (typeof module !== "undefined") {
           </div>
         </div>
       `;
+      }
       return;
     }
 
@@ -4839,13 +4853,16 @@ if (typeof module !== "undefined") {
         const stars = starStr(sig ? sig.p : null);
         const title = `${ci.label} × ${ind.label}: ρ = ${fmtR(r)}; n = ${n}${sig ? "; p = " + fmtPVal(sig.p) : ""}${stars ? " (" + stars + ")" : ""}`;
         heatmapHtml += `<td><div class="heatmap-cell" style="background:${bg}" title="${escapeHtml(title)}">${fmtR(r)}${stars ? " " + stars : ""}</div></td>`;
-        if (r !== null) allCorrs.push({ climate: ci.id, climateLabel: ci.short, ext: ind.key, extLabel: ind.short, r, p: sig ? sig.p : null, n, extDir: ind.direction });
+        if (r !== null) allCorrs.push({ climate: ci.id, climateLabel: ci.label, ext: ind.key, extLabel: ind.label, r, p: sig ? sig.p : null, n, extDir: ind.direction });
       });
       heatmapHtml += "</tr>";
     });
     heatmapHtml += "</tbody></table>";
 
     // --- Identifica correlacoes mais fortes e significativas ---
+    // Salva no State para uso na aba de Hipóteses
+    State.extCorrs = allCorrs;
+    if (computeOnly) return;
     const sigCorrs = allCorrs.filter(c => c.p !== null && c.p < 0.05).sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
     const strongestPos = [...sigCorrs].filter(c => {
       // Para direction positive do indicador externo, correlacao positiva e boa;
@@ -5176,7 +5193,193 @@ if (typeof module !== "undefined") {
     drawScatter();
   }
 
-  // expose for debugging
+  function renderHipoteses(rows) {
+    const el = $("#view-hipoteses");
+    if (!rows || !rows.length) return;
+
+    // Calcula automaticamente os dados de correlação se ainda não disponíveis
+    if (!State.habMhCorrs || !State.dimCorrs) renderCorrelacoes(rows, true);
+    if (!State.extCorrs) renderIndicesExternos(rows, true);
+
+    function fmtR2(r) { return r === null || isNaN(r) ? "—" : r.toFixed(3).replace('.', ','); }
+    function interpLabel(r) {
+      if (r === null || isNaN(r)) return "—";
+      const a = Math.abs(r);
+      if (a < 0.10) return "desprezível";
+      if (a < 0.30) return "pequena";
+      if (a < 0.50) return "moderada";
+      if (a < 0.70) return "forte";
+      return "muito forte";
+    }
+    function starStr2(p) {
+      if (p === null || p === undefined || isNaN(p)) return "";
+      if (p < 0.01) return "**";
+      if (p < 0.05) return "*";
+      return "";
+    }
+    function decisionStr(p) {
+      if (p === null || p === undefined) return "—";
+      return p < 0.05 ? "Aceita" : "Rejeitada";
+    }
+
+    const HABITUS_HEALTHY = new Set(['hab_atvMod', 'hab_atvInt', 'hab_sono', 'hab_cafe', 'hab_spt0', 'hab_spt1', 'hab_spt2', 'hab_spt3']);
+    const HABITUS_RISK = new Set(['hab_tempoTela']);
+    function isExpectedDirHab(rowId, r) {
+      if (HABITUS_HEALTHY.has(rowId)) return r < 0;
+      if (HABITUS_RISK.has(rowId)) return r > 0;
+      return true;
+    }
+
+    const extCorrs = State.extCorrs || [];
+    const dimCorrs = State.dimCorrs || [];
+    const habMhCorrs = State.habMhCorrs || [];
+    const hypotheses = [];
+
+    extCorrs.forEach(c => {
+      hypotheses.push({
+        block: 1, blockLabel: 'Indicadores Externos (nível da escola)',
+        hypothesis: c.climateLabel + ' se relaciona com ' + c.extLabel,
+        r: c.r, p: c.p, n: c.n,
+        expectedDir: c.extDir === 'positive' ? c.r > 0 : c.r < 0,
+        inferencia: buildExtInference(c)
+      });
+    });
+
+    dimCorrs.forEach(c => {
+      hypotheses.push({
+        block: 2, blockLabel: 'Dimensões do Clima Escolar (nível do respondente)',
+        hypothesis: defOf(c.idA).label + ' se relaciona com ' + defOf(c.idB).label,
+        r: c.r, p: c.p, n: c.n,
+        expectedDir: true,
+        inferencia: buildDimInference(c)
+      });
+    });
+
+    habMhCorrs.forEach(c => {
+      hypotheses.push({
+        block: 3, blockLabel: 'Hábitos de Vida × Saúde Mental (nível do respondente)',
+        hypothesis: c.rowLabel + ' se relaciona com ' + c.colLabel,
+        r: c.r, p: c.p, n: c.n,
+        expectedDir: isExpectedDirHab(c.rowId, c.r),
+        inferencia: buildHabMhInference(c)
+      });
+    });
+
+    hypotheses.sort((a, b) => {
+      if (a.block !== b.block) return a.block - b.block;
+      const sigA = a.p !== null && a.p < 0.01 ? 0 : a.p !== null && a.p < 0.05 ? 1 : 2;
+      const sigB = b.p !== null && b.p < 0.01 ? 0 : b.p !== null && b.p < 0.05 ? 1 : 2;
+      if (sigA !== sigB) return sigA - sigB;
+      if (Math.abs(b.r) !== Math.abs(a.r)) return Math.abs(b.r) - Math.abs(a.r);
+      if (a.expectedDir !== b.expectedDir) return a.expectedDir ? -1 : 1;
+      return 0;
+    });
+
+    const nTotal = hypotheses.length;
+    const nAceitas = hypotheses.filter(h => h.p !== null && h.p < 0.05).length;
+    const nBloco1 = hypotheses.filter(h => h.block === 1).length;
+    const nBloco2 = hypotheses.filter(h => h.block === 2).length;
+    const nBloco3 = hypotheses.filter(h => h.block === 3).length;
+
+    function buildExtInference(c) {
+      if (c.r === null) return "Dados insuficientes para esta análise.";
+      const sig = c.p !== null && c.p < 0.05;
+      if (!sig) return "Não há evidência de associação estatística entre este indicador de clima e o indicador externo nesta amostra.";
+      const dir = c.r > 0 ? 'positiva' : 'negativa';
+      const isExpected = c.extDir === 'positive' ? c.r > 0 : c.r < 0;
+      const sw = interpLabel(c.r);
+      if (isExpected) {
+        if (c.extDir === 'positive') return 'Escolas com melhores índices de ' + c.climateLabel + ' tendem a apresentar melhor ' + c.extLabel + ' (associação ' + dir + ', ' + sw + '). Isso sugere que promover este aspecto do clima pode contribuir para melhores resultados educacionais.';
+        return 'Escolas com melhores índices de ' + c.climateLabel + ' tendem a apresentar menor ' + c.extLabel + ' (associação ' + dir + ', ' + sw + '). Isso sugere que este aspecto do clima pode ter efeito protetivo contra ' + c.extLabel.toLowerCase() + '.';
+      }
+      return 'Associação ' + dir + ' inesperada: escolas com melhores índices de ' + c.climateLabel + ' apresentam ' + (c.r > 0 ? 'maior' : 'menor') + ' ' + c.extLabel + ' (associação ' + sw + '). Pode indicar variáveis de confusão ou efeitos mediadores que merecem investigação adicional.';
+    }
+
+    function buildDimInference(c) {
+      if (c.r === null) return "Dados insuficientes.";
+      const sig = c.p !== null && c.p < 0.05;
+      if (!sig) return 'Não há evidência de associação estatística entre ' + defOf(c.idA).label + ' e ' + defOf(c.idB).label + ' nesta amostra.';
+      const lA = defOf(c.idA).short;
+      const lB = defOf(c.idB).short;
+      const sw = interpLabel(c.r);
+      const dir = c.r > 0 ? 'maiores' : 'menores';
+      return 'Estudantes com índices mais altos de ' + lA + ' tendem a apresentar índices ' + dir + ' de ' + lB + ' (associação ' + (c.r > 0 ? 'positiva' : 'negativa') + ', ' + sw + '). Isso é consistente com a estrutura teórica da Escala Delaware.';
+    }
+
+    function buildHabMhInference(c) {
+      if (c.r === null) return "Dados insuficientes.";
+      const sig = c.p !== null && c.p < 0.05;
+      if (!sig) return 'Não há evidência de associação estatística entre ' + c.rowLabel + ' e ' + c.colLabel + ' nesta amostra.';
+      const sw = interpLabel(c.r);
+      const expected = isExpectedDirHab(c.rowId, c.r);
+      const protetiva = c.r < 0;
+      if (expected) {
+        if (protetiva) return 'Estudantes com maiores níveis de ' + c.rowLabel + ' tendem a apresentar menores níveis de ' + c.colLabel + ' (associação negativa, ' + sw + '), sugerindo um possível efeito protetor deste hábito sobre a saúde mental.';
+        return 'Estudantes com maiores níveis de ' + c.rowLabel + ' tendem a apresentar maiores níveis de ' + c.colLabel + ' (associação positiva, ' + sw + '), sugerindo uma possível associação de risco que merece atenção.';
+      }
+      return 'Associação na direção oposta à esperada (associação ' + sw + '). Pode indicar a presença de variáveis de confusão ou necessidade de investigação mais aprofundada.';
+    }
+
+    const corrStr = (r, p) => {
+      if (r === null || isNaN(r)) return '—';
+      const stars = starStr2(p);
+      return fmtR2(r) + (stars ? ' ' + stars : '');
+    };
+    const decColor = (p) => (p === null || p === undefined) ? 'var(--muted)' : p < 0.05 ? 'var(--good)' : 'var(--bad)';
+    const interpColor = (r) => {
+      if (r === null || isNaN(r)) return 'var(--muted)';
+      const a = Math.abs(r);
+      if (a < 0.10) return 'var(--muted)';
+      if (a < 0.30) return '#e0a715';
+      if (a < 0.50) return '#ed8936';
+      return 'var(--brand)';
+    };
+
+    let currentBlock = 0;
+    let html = '<div class="section-title">Quadro de Hipóteses</div>'
+      + '<div class="section-desc">Síntese de todas as correlações disponíveis no dashboard, organizadas por bloco de relevância para planejamento de ações. Cada linha representa uma hipótese de associação testada. <b>Aceita</b> = correlação estatisticamente significativa (p < 0,05); <b>Rejeitada</b> = não significativa. A interpretação do tamanho do efeito segue Cohen (1988): desprezível, pequena, moderada, forte ou muito forte.</div>'
+      + '<div class="grid cols-4">'
+      + kpiCard("Total de hipóteses", nTotal, "testadas")
+      + kpiCard("Aceitas", nAceitas, nTotal ? (nAceitas / nTotal * 100).toFixed(1).replace('.', ',') + '%' : '—')
+      + kpiCard("Rejeitadas", nTotal - nAceitas, "p ≥ 0,05")
+      + kpiCard("Fontes", "3 blocos", "Ext. " + nBloco1 + ' · Dim. ' + nBloco2 + ' · Hab. ' + nBloco3)
+      + '</div>';
+
+    html += '<div style="margin-top:20px">';
+    hypotheses.forEach(h => {
+      if (h.block !== currentBlock) {
+        if (currentBlock !== 0) html += '</tbody></table></div>';
+        currentBlock = h.block;
+        const blockDesc = h.block === 1
+          ? 'Correlações entre índices de clima escolar (média por escola) e indicadores educacionais da Secretaria de Educação (IDEB, SAEB, frequência, APOIAs/100, risco de abandono/100). Dados ao nível da escola.'
+          : h.block === 2
+          ? 'Correlações entre os construtos da Escala Delaware (incluindo o índice de Saúde Mental). Dados ao nível do respondente.'
+          : 'Correlações entre variáveis de hábitos de vida (atividade física, sono, tempo de tela, regras de tela, café da manhã) e indicadores de saúde mental (itens individuais PeNSE e construto composto). Dados ao nível do respondente.';
+        html += '<div class="section-title" style="margin-top:28px">Bloco ' + h.block + ': ' + h.blockLabel + '</div>'
+          + '<div class="section-desc" style="margin-bottom:12px">' + blockDesc + '</div>'
+          + '<div class="card"><table class="simple" style="font-size:12.5px">'
+          + '<thead><tr><th style="min-width:260px">Hipótese</th><th style="width:90px;text-align:center">Decisão</th><th style="width:90px;text-align:center">Correlação (ρ)</th><th style="width:100px;text-align:center">Interpretação</th><th style="min-width:280px">Inferência do resultado</th></tr></thead><tbody>';
+      }
+      const dec = decisionStr(h.p);
+      const dirIcon = h.expectedDir ? '' : ' <span style="color:#e0a715" title="Direção inesperada">⚠</span>';
+      html += '<tr>'
+        + '<td>' + escapeHtml(h.hypothesis) + dirIcon + '</td>'
+        + '<td style="text-align:center;font-weight:700;color:' + decColor(h.p) + '">' + dec + '</td>'
+        + '<td style="text-align:center;font-weight:600">' + corrStr(h.r, h.p) + '</td>'
+        + '<td style="text-align:center;color:' + interpColor(h.r) + ';font-weight:600">' + interpLabel(h.r) + '</td>'
+        + '<td style="font-size:12px;color:var(--ink);line-height:1.5">' + h.inferencia + '</td>'
+        + '</tr>';
+    });
+    if (currentBlock !== 0) html += '</tbody></table></div>';
+    html += '</div>';
+
+    html += '<div class="footer-note">Método: coeficiente ρ de Spearman para todas as correlações. Significância: teste t com distribuição t de Student (df = n − 2); * p < 0,05; ** p < 0,01 (bicaudal). Interpretação do tamanho do efeito: Cohen (1988). Bloco 1 = nível da escola (n = número de escolas pareadas); Blocos 2 e 3 = nível do respondente (n = número de alunos com dados válidos). ⚠ = direção inesperada da associação.</div>';
+
+    el.innerHTML = html;
+  }
+
+
+    // expose for debugging
   window.__State = State;
 })();
 </script>
