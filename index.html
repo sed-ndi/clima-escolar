@@ -5235,9 +5235,12 @@ if (typeof module !== "undefined") {
     const habMhCorrs = State.habMhCorrs || [];
     const hypotheses = [];
 
+    const PROFICIENCIA_KEYS = new Set(['ideb', 'saebPortugues', 'saebMatematica']);
     extCorrs.forEach(c => {
+      const isProf = PROFICIENCIA_KEYS.has(c.ext);
       hypotheses.push({
-        block: 1, blockLabel: 'Indicadores Externos (nível da escola)',
+        block: isProf ? 1 : 2,
+        blockLabel: isProf ? 'Indicadores de Proficiência (IDEB / SAEB)' : 'Indicadores de Fluxo Escolar (Frequência / Abandono)',
         hypothesis: c.climateLabel + ' se relaciona com ' + c.extLabel,
         r: c.r, p: c.p, n: c.n,
         expectedDir: c.extDir === 'positive' ? c.r > 0 : c.r < 0,
@@ -5247,7 +5250,7 @@ if (typeof module !== "undefined") {
 
     dimCorrs.forEach(c => {
       hypotheses.push({
-        block: 2, blockLabel: 'Dimensões do Clima Escolar (nível do respondente)',
+        block: 3, blockLabel: 'Dimensões do Clima Escolar (nível do respondente)',
         hypothesis: defOf(c.idA).label + ' se relaciona com ' + defOf(c.idB).label,
         r: c.r, p: c.p, n: c.n,
         expectedDir: true,
@@ -5257,7 +5260,7 @@ if (typeof module !== "undefined") {
 
     habMhCorrs.forEach(c => {
       hypotheses.push({
-        block: 3, blockLabel: 'Hábitos de Vida × Saúde Mental (nível do respondente)',
+        block: 4, blockLabel: 'Hábitos de Vida × Saúde Mental (nível do respondente)',
         hypothesis: c.rowLabel + ' se relaciona com ' + c.colLabel,
         r: c.r, p: c.p, n: c.n,
         expectedDir: isExpectedDirHab(c.rowId, c.r),
@@ -5280,6 +5283,7 @@ if (typeof module !== "undefined") {
     const nBloco1 = hypotheses.filter(h => h.block === 1).length;
     const nBloco2 = hypotheses.filter(h => h.block === 2).length;
     const nBloco3 = hypotheses.filter(h => h.block === 3).length;
+    const nBloco4 = hypotheses.filter(h => h.block === 4).length;
 
     function buildExtInference(c) {
       if (c.r === null) return "Dados insuficientes para esta análise.";
@@ -5342,7 +5346,7 @@ if (typeof module !== "undefined") {
       + kpiCard("Total de hipóteses", nTotal, "testadas")
       + kpiCard("Aceitas", nAceitas, nTotal ? (nAceitas / nTotal * 100).toFixed(1).replace('.', ',') + '%' : '—')
       + kpiCard("Rejeitadas", nTotal - nAceitas, "p ≥ 0,05")
-      + kpiCard("Fontes", "3 blocos", "Ext. " + nBloco1 + ' · Dim. ' + nBloco2 + ' · Hab. ' + nBloco3)
+      + kpiCard("Fontes", "4 blocos", "Prof. " + nBloco1 + ' · Fluxo ' + nBloco2 + ' · Dim. ' + nBloco3 + ' · Hab. ' + nBloco4)
       + '</div>';
 
     html += '<div style="margin-top:20px">';
@@ -5351,10 +5355,12 @@ if (typeof module !== "undefined") {
         if (currentBlock !== 0) html += '</tbody></table></div>';
         currentBlock = h.block;
         const blockDesc = h.block === 1
-          ? 'Correlações entre índices de clima escolar (média por escola) e indicadores educacionais da Secretaria de Educação (IDEB, SAEB, frequência, APOIAs/100, risco de abandono/100). Dados ao nível da escola.'
+          ? 'Correlações entre índices de clima escolar (média por escola) e indicadores de proficiência acadêmica: IDEB (2025) e SAEB 9º Ano — Português e Matemática (2025). Dados ao nível da escola (n = número de escolas pareadas).'
           : h.block === 2
-          ? 'Correlações entre os construtos da Escala Delaware (incluindo o índice de Saúde Mental). Dados ao nível do respondente.'
-          : 'Correlações entre variáveis de hábitos de vida (atividade física, sono, tempo de tela, regras de tela, café da manhã) e indicadores de saúde mental (itens individuais PeNSE e construto composto). Dados ao nível do respondente.';
+          ? 'Correlações entre índices de clima escolar (média por escola) e indicadores de fluxo escolar: frequência percentual média, % de alunos com frequência < 75%, taxa de APOIAs por 100 alunos e taxa de risco de abandono por 100 alunos (2026). Dados ao nível da escola (n = número de escolas pareadas).'
+          : h.block === 3
+          ? 'Correlações entre os construtos da Escala Delaware (incluindo o índice de Saúde Mental). Dados ao nível do respondente (n = número de alunos com dados válidos).'
+          : 'Correlações entre variáveis de hábitos de vida (atividade física, sono, tempo de tela, regras de tela, café da manhã) e indicadores de saúde mental (itens individuais PeNSE e construto composto). Dados ao nível do respondente (n = número de alunos com dados válidos).';
         html += '<div class="section-title" style="margin-top:28px">Bloco ' + h.block + ': ' + h.blockLabel + '</div>'
           + '<div class="section-desc" style="margin-bottom:12px">' + blockDesc + '</div>'
           + '<div class="card"><table class="simple" style="font-size:12.5px">'
@@ -5373,7 +5379,7 @@ if (typeof module !== "undefined") {
     if (currentBlock !== 0) html += '</tbody></table></div>';
     html += '</div>';
 
-    html += '<div class="footer-note">Método: coeficiente ρ de Spearman para todas as correlações. Significância: teste t com distribuição t de Student (df = n − 2); * p < 0,05; ** p < 0,01 (bicaudal). Interpretação do tamanho do efeito: Cohen (1988). Bloco 1 = nível da escola (n = número de escolas pareadas); Blocos 2 e 3 = nível do respondente (n = número de alunos com dados válidos). ⚠ = direção inesperada da associação.</div>';
+    html += '<div class="footer-note">Método: coeficiente ρ de Spearman para todas as correlações. Significância: teste t com distribuição t de Student (df = n − 2); * p < 0,05; ** p < 0,01 (bicaudal). Interpretação do tamanho do efeito: Cohen (1988). Blocos 1 e 2 = nível da escola (n = número de escolas pareadas); Blocos 3 e 4 = nível do respondente (n = número de alunos com dados válidos). ⚠ = direção inesperada da associação.</div>';
 
     el.innerHTML = html;
   }
