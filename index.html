@@ -3165,7 +3165,10 @@ if (typeof module !== "undefined") {
   // SAÚDE MENTAL & BEM-ESTAR
   // ---------------------------------------------------------------------
   // ORIGINAL: const PENSE_BRASIL_REF = { ansiedade: 50.9, humor_deprimido: 33.1, autodepreciacao: 34.0, irritabilidade: 43.9, ideacao_suicida: 24.1 };
-  const PENSE_BRASIL_REF = { ansiedade: 50.9, humor_deprimido: 28.3, autodepreciacao: 25.4, irritabilidade: 44.0, ideacao_suicida: 17.6 };
+  const PENSE_BRASIL_REF = { ansiedade: 49.1, humor_deprimido: 29.0, autodepreciacao: 26.2, irritabilidade: 44.2, ideacao_suicida: 18.5 };
+  const PENSE_BRASIL_NACIONAL_REF = { ansiedade: 47.4, humor_deprimido: 29.2, autodepreciacao: 26.7, irritabilidade: 42.5, ideacao_suicida: 19.4 };
+  const PENSE_SUL_REF = PENSE_BRASIL_REF;
+  const PENSE_NACIONAL_REF = PENSE_BRASIL_NACIONAL_REF;
   function renderSaude(rows) {
     const el = $("#view-saude");
     const items = CONFIG.MENTAL_HEALTH_ITEMS;
@@ -3220,14 +3223,14 @@ if (typeof module !== "undefined") {
       <div class="card" style="margin-top:20px;background:#f8fafc;border-left:4px solid var(--brand)">
         <h3>Síntese dos dados</h3>
         <p style="font-size:13.5px;line-height:1.65;color:var(--ink);margin:8px 0 0">
-          O rastreio de saúde mental, baseado em cinco indicadores inspirados no PeNSE/IBGE (2024), revelou um índice de Saúde Mental (Sofrimento Psíquico) composto de <b>${fmtN(composite)}</b> (DP = ${fmtN(compositeSD)}; n = ${compositeScores.length}) na escala 0-100, em que valores mais elevados indicam menor frequência de sintomas autorrelatados nos últimos 30 dias (melhor saúde mental). Em termos de prevalência pontual — definida como a proporção de estudantes que relataram cada sintoma "na maioria das vezes" ou "sempre" —, o indicador mais frequente foi <b>${topSymptom ? topSymptom.label.toLowerCase() : "—"}</b> (${fmtPct(topSymptomPct)}), seguido pelos demais indicadores com prevalências que devem ser interpretadas à luz da referência regional do PeNSE 2024 para a região Sul do Brasil. A comparação entre Joinville e a referência nacional evidencia ${shares.some(s => s !== null && PENSE_BRASIL_REF[items[shares.indexOf(s)].id] !== undefined && s > PENSE_BRASIL_REF[items[shares.indexOf(s)].id]) ? "patamares superiores aos da referência em pelo menos um dos indicadores, sugerindo a necessidade de investigação qualificada dos fatores contextuais associados" : "prevalências compatíveis ou inferiores às da referência nacional, embora a heterogeneidade entre indicadores recomende atenção focalizada aos sintomas mais frequentes"}. A análise estratificada por sexo revelou padrões consistentes com a literatura internacional, que sistematicamente documenta maior prevalência de sintomas internalizantes (ansiedade, depressão) entre estudantes do sexo feminino. Quanto aos indicadores de bem-estar subjetivo, ${fmtPct(semAmigos)} dos respondentes reportaram não possuir nenhum amigo próximo (referência PeNSE 2024: 3,5%), enquanto a satisfação média com a vida atingiu <b>${fmtN(satisfMean)}</b> na escala 0-10 (PISA). A identificação de casos com escores reduzidos no índice composto — sobretudo quando acompanhados de ideação suicida — deve disparar o fluxo de encaminhamento aos serviços de saúde mental disponíveis na rede, em conformidade com o protocolo de cuidado preconizado pelo Ministério da Saúde e pela Secretaria Municipal de Educação. Recomenda-se, ainda, a realização de análises longitudinais que permitam monitorar a evolução desses indicadores ao longo do tempo e avaliar o impacto das intervenções implementadas.
+          O rastreio de saúde mental, baseado em cinco indicadores inspirados no PeNSE/IBGE (2024), revelou um índice de Saúde Mental (Sofrimento Psíquico) composto de <b>${fmtN(composite)}</b> (DP = ${fmtN(compositeSD)}; n = ${compositeScores.length}) na escala 0-100, em que valores mais elevados indicam menor frequência de sintomas autorrelatados nos últimos 30 dias (melhor saúde mental). Em termos de prevalência pontual — definida como a proporção de estudantes que relataram cada sintoma "na maioria das vezes" ou "sempre" —, o indicador mais frequente foi <b>${topSymptom ? topSymptom.label.toLowerCase() : "—"}</b> (${fmtPct(topSymptomPct)}), seguido pelos demais indicadores com prevalências que devem ser interpretadas à luz das referências PeNSE 2024 para escolas públicas — Região Sul e Brasil. A comparação entre Joinville e as referências evidencia ${shares.some(s => s !== null && (PENSE_BRASIL_REF[items[shares.indexOf(s)].id] !== undefined && s > PENSE_BRASIL_REF[items[shares.indexOf(s)].id] || PENSE_BRASIL_NACIONAL_REF[items[shares.indexOf(s)].id] !== undefined && s > PENSE_BRASIL_NACIONAL_REF[items[shares.indexOf(s)].id])) ? "patamares superiores às referências em pelo menos um dos indicadores, sugerindo a necessidade de investigação qualificada dos fatores contextuais associados" : "prevalências compatíveis ou inferiores às referências, embora a heterogeneidade entre indicadores recomende atenção focalizada aos sintomas mais frequentes"}. A análise estratificada por sexo revelou padrões consistentes com a literatura internacional, que sistematicamente documenta maior prevalência de sintomas internalizantes (ansiedade, depressão) entre estudantes do sexo feminino. Quanto aos indicadores de bem-estar subjetivo, ${fmtPct(semAmigos)} dos respondentes reportaram não possuir nenhum amigo próximo (referência PeNSE 2024: 3,5%), enquanto a satisfação média com a vida atingiu <b>${fmtN(satisfMean)}</b> na escala 0-10 (PISA). A identificação de casos com escores reduzidos no índice composto — sobretudo quando acompanhados de ideação suicida — deve disparar o fluxo de encaminhamento aos serviços de saúde mental disponíveis na rede, em conformidade com o protocolo de cuidado preconizado pelo Ministério da Saúde e pela Secretaria Municipal de Educação. Recomenda-se, ainda, a realização de análises longitudinais que permitam monitorar a evolução desses indicadores ao longo do tempo e avaliar o impacto das intervenções implementadas.
         </p>
       </div>
     `;
 
     el.innerHTML = `
       <div class="section-title">Rastreio de saúde mental <span class="tag">PeNSE, IBGE 2024</span></div>
-      <div class="section-desc">Percentual de estudantes que relataram cada sintoma "na maioria das vezes" ou "sempre" nos últimos 30 dias, comparado à referência nacional (PeNSE 2024, região Sul).</div>
+      <div class="section-desc">Percentual de estudantes que relataram cada sintoma "na maioria das vezes" ou "sempre" nos últimos 30 dias, comparado às referências PeNSE 2024 para escolas públicas — Região Sul e Brasil.</div>
       <div class="grid cols-4">
         ${kpiCard("Saúde Mental (Sofrimento Psíquico)", fmt1(composite), "composto (0-100, maior = mais favorável)")}
         ${kpiCard("Sem nenhum amigo próximo", fmtPct(semAmigos), "referência PeNSE 2024: 3,5%")}
@@ -3235,7 +3238,7 @@ if (typeof module !== "undefined") {
         ${kpiCard("Amostra válida", rows.length.toLocaleString("pt-BR"), "respondentes na seleção atual")}
       </div>
       <div class="grid cols-2" style="margin-top:16px">
-        <div class="card"><h3>Sintomas: Joinville vs. referência nacional</h3><div class="chart-wrap tall"><canvas id="chSaudeBars"></canvas></div></div>
+        <div class="card"><h3>Sintomas: Joinville vs. referências PeNSE (escolas públicas)</h3><div class="chart-wrap tall"><canvas id="chSaudeBars"></canvas></div></div>
         <div class="card"><h3>Sintomas por sexo (Joinville)</h3><div class="chart-wrap tall"><canvas id="chSaudeSexo"></canvas></div></div>
       </div>
 
@@ -3258,7 +3261,7 @@ if (typeof module !== "undefined") {
 
       ${synSaude}
 
-      <div class="footer-note">Fonte: PeNSE (IBGE, 2024) e itens PISA (OCDE, 2022) para satisfação com a vida.</div>
+      <div class="footer-note">Fonte: PeNSE (IBGE, 2024) — referências de escolas públicas (Região Sul e Brasil) e itens PISA (OCDE, 2022) para satisfação com a vida.</div>
     `;
 
     // Tooltip para chSaudeBars: mostra % e valor absoluto
@@ -3268,7 +3271,8 @@ if (typeof module !== "undefined") {
         labels: items.map(it => it.label),
         datasets: [
           { label: "Joinville (seleção atual)", data: shares, backgroundColor: PALETTE[4], borderRadius: 5 },
-          { label: "PeNSE Brasil 2024 (Região Sul)", data: items.map(it => PENSE_BRASIL_REF[it.id]), backgroundColor: "#c9d2e0", borderRadius: 5 }
+          { label: "PeNSE 2024 — Região Sul (escolas públicas)", data: items.map(it => PENSE_BRASIL_REF[it.id]), backgroundColor: "#94a3b8", borderRadius: 5 },
+          { label: "PeNSE 2024 — Brasil (escolas públicas)", data: items.map(it => PENSE_BRASIL_NACIONAL_REF[it.id]), backgroundColor: "#cbd5e1", borderRadius: 5 }
         ]
       },
       options: {
