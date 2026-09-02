@@ -5345,7 +5345,7 @@ if (typeof module !== "undefined") {
 
     let currentBlock = 0;
     let html = '<div class="section-title">Quadro de Hipóteses</div>'
-      + '<div class="section-desc">Síntese de todas as correlações disponíveis no dashboard, organizadas por bloco de relevância para planejamento de ações. Cada linha representa uma hipótese de associação testada. <b>Aceita</b> = correlação estatisticamente significativa (p < 0,05); <b>Rejeitada</b> = não significativa. A interpretação do tamanho do efeito segue Cohen (1988): desprezível, pequena, moderada, forte ou muito forte.</div>'
+      + '<div class="section-desc">Síntese de todas as correlações disponíveis no dashboard, organizadas por bloco de relevância para planejamento de ações. Cada linha representa uma hipótese de associação testada. <b>Aceita</b> = correlação estatisticamente significativa (p < 0,05); <b>Rejeitada</b> = não significativa. A interpretação do tamanho do efeito segue Cohen (1988): |r| < 0,10 = desprezível; 0,10–0,29 = pequena; 0,30–0,49 = moderada; 0,50–0,69 = forte; ≥ 0,70 = muito forte.</div>'
       + '<div class="grid cols-4">'
       + kpiCard("Total de hipóteses", nTotal, "testadas")
       + kpiCard("Aceitas", nAceitas, nTotal ? (nAceitas / nTotal * 100).toFixed(1).replace('.', ',') + '%' : '—')
